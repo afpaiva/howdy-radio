@@ -7,3 +7,4 @@
 ## Day 2
 - Expanded scope: skin system (Walkman, Winamp, Atari, Tamagotchi) behind a shared Skin interface
 - Started SPEC.md with the project overall concept using the model Nemotron 3 Ultra and a few manual edits
+- Started SYSTEM.md with help of Claude Sonnet 5, and revised
