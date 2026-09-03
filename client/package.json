@@ -3,7 +3,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot index.html"
+    "dev": "bun --hot index.html",
+    "build": "bun build ./index.html --outdir dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
     "react": "^19",
@@ -11,8 +18,16 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
-    "typescript": "latest",
+    "@playwright/test": "^1.62.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "latest",
-    "@types/react-dom": "latest"
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
+    "playwright": "^1.62.1",
+    "typescript": "latest",
+    "vitest": "^5.0.0",
+    "eslint": "^9"
   }
 }
