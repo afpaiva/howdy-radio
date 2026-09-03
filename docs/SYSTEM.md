@@ -11,27 +11,41 @@ of agent judgment.
 
 | Role | Tool / Model | Responsibility | Context given |
 |---|---|---|---|
-| **Planner** | OpenCode + `nvidia/nemotron-3-ultra:free` | Turned product ideas into SPEC.md; surfaced ambiguities instead of assuming | Product requirements only — no implementation code |
-| **Reviewer** | Claude `Sonnet 5` | Reviewed SPEC.md/SYSTEM.md for gaps, ambiguity, and technical risk before implementation began | Full spec + prior decisions |
-| **Skeleton Implementer** | OpenCode + `qwen/qwen3-coder:free` | Built the neutral, unstyled Skin interface + WebSocket client wiring, validated against real server state | SPEC.md (Architecture, Skin Interface) |
-| **Skin Implementers (×4, parallel)** | OpenCode + `openai/gpt-oss-20b:free` | Implemented Winamp, Atari, Walkman, Tamagotchi skins independently, each scoped to its own directory | SPEC.md (Skin System) + shared `Skin` interface contract only — no access to other skins' code |
-| **Loop / Fix Agent** | OpenCode + `openai/gpt-oss-20b:free` | Ran harness after each implementation step, read failures, corrected, re-ran | Harness output only (test logs), not full codebase context |
+| **Spec & System Author** | Claude (this conversation) | Authors and maintains SPEC.md and SYSTEM.md collaboratively with the human, across the full history of the project's decisions | Full conversation history + all prior decisions |
+| **Planner (Alignment Review)** | OpenCode + `thinkingmachines/inkling:free` | Audits the actual codebase against SPEC.md/SYSTEM.md and reports drift — does not author documents | Full spec/system + read access to source code |
+| **Skeleton Implementer** | OpenCode + `z-ai/glm-5.2:free` | Built the neutral, unstyled Skin interface + WebSocket client wiring, validated against real server state | SPEC.md (Architecture, Skin Interface) |
+| **Skin Implementers (×4, parallel)** | OpenCode + `minimax/minimax-m3:free` | Implemented Winamp, Atari, Walkman, Tamagotchi skins independently, each scoped to its own directory | SPEC.md (Skin System) + shared `Skin` interface contract only — no access to other skins' code |
+| **Server Implementer** | OpenCode + `z-ai/glm-5.2:free` | Built the Bun backend: conductor (timeline, idle/grace, bootstrap lock), Slack integration, YouTube ads integration, auth provider | SPEC.md + `/server/AGENTS.md` |
+| **Loop / Fix Agent** | OpenCode + `cohere/north-mini-code:free` | Ran harness after each implementation step, read failures, corrected, re-ran | Harness output only (test logs), not full codebase context |
 
-*This table reflects role specialization, not one-agent-per-name theater —
-each role received a deliberately scoped slice of context (see below).*
+*Why documents moved to human+Claude authorship*: SPEC.md and SYSTEM.md
+changed frequently as scope evolved (skins, ads, idle behavior, auth
+strategy). A subagent without continuity across sessions kept losing
+context on *why* earlier decisions were made. Claude, with the full
+conversation history, could reconcile new requests against prior
+decisions without re-explaining them each time — reducing repeated
+instruction, which is exactly the kind of system improvement the
+competition brief asks for ("can I improve the system so I never need
+to give that instruction again?").
 
 ---
 
 ## Context Engineering
 
-- **Planner** never saw implementation code — only product intent — to avoid
-  premature technical assumptions leaking into the spec.
-- **Skin Implementers** received only the `Skin` interface contract and the
-  Skin System section of SPEC.md, not each other's code or the full
+- **Planner** now only reads code + docs to check alignment — it never
+  authors specification, avoiding the earlier risk of drift between
+  "what the planner assumed" and "what the human actually decided."
+- **Skin Implementers** received only the `Skin` interface contract and
+  the Skin System section of SPEC.md, not each other's code or the full
   server implementation — preventing cross-contamination and enabling
   true parallel, conflict-free work.
-- **Loop / Fix Agent** operated on harness output (pass/fail + error text)
-  rather than the full project context, keeping fix cycles fast and
+- **Server Implementer** received `/server/AGENTS.md` (Bun conventions,
+  hard rules on state ownership) in addition to SPEC.md — scoped
+  specifically to backend concerns, with explicit warnings against
+  reintroducing patterns (e.g. Bun's HTML-import bundler) that conflict
+  with prior architecture decisions (Vite for client).
+- **Loop / Fix Agent** operated on harness output (pass/fail + error
+  text) rather than full project context, keeping fix cycles fast and
   focused.
 - Full SPEC.md was treated as the durable source of truth; agents were
   re-pointed to it rather than given repeated inline instructions.
@@ -41,34 +55,52 @@ each role received a deliberately scoped slice of context (see below).*
 ## Orchestration & Parallel Work
 
 ### Sequencing
-1. Planner produces SPEC.md → Reviewer validates → human resolves
-   clarification questions (see SPEC.md "Clarification Answers").
+1. Spec authored/evolved collaboratively (Claude + human) → Planner
+   audits for internal consistency before implementation phases begin.
 2. Skeleton Implementer builds `/client/src/skins/types.ts` (interface) +
    a neutral skin wired to real WebSocket state — validated end-to-end
-   **before** parallel work starts (gate: no point styling 4 skins on top
-   of a broken data layer).
-3. Four Skin Implementer sessions run in parallel, one per skin, each
-   confined to `/client/src/skins/<name>/`.
+   **before** parallel skin work starts (gate: no point styling 4 skins
+   on top of a broken data layer).
+3. **Two parallel tracks** run concurrently once the skeleton is
+   validated:
+   - **Track A**: Four Skin Implementer sessions, one per skin, each
+     confined to `/client/src/skins/<name>/`.
+   - **Track B**: Server Implementer builds the backend — this has no
+     file overlap with client skin work, so it runs alongside Track A
+     rather than waiting for it.
 4. Integration: skins registered in `/client/src/skins/registry.ts`;
    a contract test confirms every registered skin satisfies the `Skin`
-   interface before merge.
+   interface. Client and server are wired together and tested end-to-end
+   via Playwright once both tracks land.
+5. Planner re-runs Alignment Review after integration to catch drift
+   introduced during parallel work.
 
 ### Why parallel work was safe here
-Each skin directory has zero file overlap and zero shared mutable state —
-they only read from the same `PlaybackState` shape. This made parallel
-delegation low-risk: a broken Atari skin cannot affect the Walkman skin,
-and merge conflicts were structurally not possible.
+- Each skin directory has zero file overlap and zero shared mutable
+  state — they only read from the same `PlaybackState` shape.
+- Server work (Track B) touches only `/server/`, client skin work
+  (Track A) touches only `/client/src/skins/`, so the two tracks cannot
+  conflict structurally.
+
+### Deliberately NOT parallelized
+The Conductor module (`/server/src/conductor/`) — WebSocket state,
+timeline, idle/grace period, bootstrap lock — was built as a single
+sequential unit within the Server Implementer's work, not split further.
+This is the one piece of genuinely shared mutable state in the system;
+splitting it across agents would reintroduce exactly the kind of race
+condition the architecture is designed to avoid.
 
 ### Parallelization Evidence
-[TODO: once the 4 skin sessions run, add a timestamp table or screenshot
-showing overlapping session windows, e.g.:]
+[TODO: once Track A and Track B run, add a timestamp table or
+screenshot showing overlapping session windows, e.g.:]
 
-| Skin | Session start | Session end | Branch |
+| Track | Session start | Session end | Branch |
 |---|---|---|---|
-| Winamp | | | `skin/winamp` |
-| Atari | | | `skin/atari` |
-| Walkman | | | `skin/walkman` |
-| Tamagotchi | | | `skin/tamagotchi` |
+| Skin: Winamp | | | `skin/winamp` |
+| Skin: Atari | | | `skin/atari` |
+| Skin: Walkman | | | `skin/walkman` |
+| Skin: Tamagotchi | | | `skin/tamagotchi` |
+| Server: Conductor + integrations | | | `server/implementation` |
 
 ---
 
@@ -81,6 +113,8 @@ showing overlapping session windows, e.g.:]
 | Tests must pass before a task is considered done | `bun test` run automatically post-implementation, not manually triggered |
 | No secrets committed | `.env` gitignored; `.env.example` provided with placeholders only |
 | No client-side sync storage | Lint rule / code review check, not just spec text |
+| Skin directory isolation | Best-effort via OpenCode `edit` permission scoping, **backed by a post-session `git diff --name-only` check** that fails if a skin session touched files outside its own directory (OpenCode's glob-based path permissions have known matching bugs, so this is not trusted as the sole guarantee) |
+| Planner cannot alter code or docs | `edit: deny` on the planner agent — it can only report |
 
 ---
 
@@ -88,10 +122,11 @@ showing overlapping session windows, e.g.:]
 
 | Check | Tool | What it validates |
 |---|---|---|
-| Unit tests | Bun test runner | Sync/timestamp calculation logic, ad distribution logic |
+| Unit tests | Bun test runner | Sync/timestamp calculation logic, ad distribution logic, Slack dedup |
 | Type check | `tsc --noEmit` | Type safety across client/server |
 | Lint | ESLint | Code convention adherence |
 | Contract test | Custom test | Every registered skin implements `Skin` interface |
+| Directory scope check | `git diff --name-only` post-session | Confirms a skin session only touched its own directory |
 | Browser test | Playwright | Two browser contexts connect, confirm both report the same track within acceptable drift (validates Definition of Done #1) |
 | Build | `bun build` / `vite build` | Both client and server build cleanly |
 
@@ -106,11 +141,11 @@ Agent specifically — can self-check without human-in-the-loop diagnosis.
 AI-DEV-LOG.md, e.g.:]
 
 ```
-Agent implemented idle-grace-period logic
-bun test → FAIL: reconnect after grace period did not reset track (race condition in clock resume)
-Agent inspected failing test output, identified stale lastActiveAt check
-Agent corrected condition, re-ran bun test → PASS
-(no human prompt between steps 2–4)
+  Agent implemented idle-grace-period logic
+  bun test → FAIL: reconnect after grace period did not reset track (race condition in clock resume)
+  Agent inspected failing test output, identified stale lastActiveAt check
+  Agent corrected condition, re-ran bun test → PASS
+  (no human prompt between steps 2–4)
 ```
 
 ---
@@ -126,7 +161,27 @@ Agent corrected condition, re-ran bun test → PASS
 - Chose to gate parallel skin work behind a validated neutral skeleton
   first, rather than parallelizing immediately.
 - Assigned different models per role deliberately (heavier model for
-  planning, lighter/faster models for repetitive implementation and fix
-  loops) to balance quality against free-tier request quotas.
+  planning/server logic, lighter/faster models for repetitive
+  implementation and fix loops) to balance quality against free-tier
+  request quotas.
+- Removed the separate `reviewer.md` subagent (was using a paid model
+  and duplicated the human+Claude review already happening in this
+  conversation); folded that responsibility into a simplified
+  Alignment-Review-only Planner.
+- Moved SPEC.md/SYSTEM.md authorship from a subagent to human+Claude
+  collaboration directly, due to continuity of context across many
+  rounds of evolving requirements.
+- Decided Server work (Track B) could run in parallel with Skin work
+  (Track A) since they share no files, while deliberately keeping the
+  Conductor's core state logic as a single sequential implementation
+  to avoid race conditions.
+- Kept Socket.io (over native Bun WebSocket) and Bun's native HTML-import
+  bundler (over Vite) after discovering both were already scaffolded and
+  working — updated SPEC.md/AGENTS.md to document these as deliberate
+  choices rather than reverting working infrastructure.
+- Simplified the reconnect grace-period design to a stateless global
+  timestamp snapshot (no per-client/session identity needed) — any
+  connection after idle computes elapsed time since the last
+  disconnect and resumes or re-bootstraps accordingly.
 
 See `/docs/AI-DEV-LOG.md` for the full chronological account.

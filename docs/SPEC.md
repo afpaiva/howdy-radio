@@ -75,14 +75,34 @@ interface AuthProvider {
 - Ads always play from the start (no random start position — unlike music tracks).
 
 ### Playback Bootstrap & Idle Behavior
-- If zero clients are connected, the server halts the playback clock (no CPU/broadcast waste).
-- On first connection after being idle:
-  - Trigger a playlist refresh from Slack (in addition to the periodic hourly refresh) to capture any links posted while the radio was "off."
-  - If the playlist is empty, build it from Slack history, pick a random track, and start at a random position within that track's duration.
-  - If the playlist already exists (previously idle), pick a new random track and random position — the "broadcast" is treated as ongoing, not resumable to an exact prior position.
-- **Grace period**: when the last client disconnects, the server keeps the clock running for `RECONNECT_GRACE_PERIOD_MINUTES` (default: 5). If a client reconnects within this window, they sync to the advanced position, simulating a real radio broadcast that never stopped. After this window elapses with no clients, the server halts the clock.
-- New clients joining while already-connected clients exist always sync to the current live position (never restart the track).
-- If a user joins the page in the middle of the music and another one joins at the same time, it should play the same place for both (a flexible short latency is acceptable).
+
+The server does not run a background timer while idle. Instead, it
+stores a single snapshot when the last client disconnects, and
+computes state on-demand when the next connection arrives (regardless
+of who connects — no per-user/session identity involved).
+
+**On last client disconnect:**
+- Store `{ trackId, position, disconnectedAt: timestamp }`.
+- Stop broadcasting/ticking — no CPU or network cost while empty.
+
+**On next connection (any connection):**
+1. Compute `elapsed = now - disconnectedAt`.
+2. If `elapsed <= RECONNECT_GRACE_PERIOD_MINUTES * 60` **and**
+   `position + elapsed < track.duration`:
+   resume the same track at `position + elapsed`, and resume the
+   broadcast clock from there — simulating a radio that kept playing
+   while nobody was listening.
+3. Otherwise (grace period expired, or not enough time left in that
+   track): treat this as a fresh bootstrap — refresh the playlist from
+   Slack, pick a new random track, and start at a random position
+   within it (same logic as the original empty-playlist bootstrap).
+4. Concurrent connections arriving during this computation resolve to
+   the same result via the existing in-process bootstrap lock (see
+   Data Flow — Initial connection race condition).
+- New clients joining while already-connected clients exist always
+  sync to the current live position (never restart the track, and
+  never re-run this snapshot logic — that only applies to the
+  transition from zero clients to one or more).
 
 ### Mock Mode
 - If `SLACK_BOT_TOKEN` is not set, server uses a sample playlist (JSON seed).
@@ -94,7 +114,7 @@ interface AuthProvider {
 
 ### Monorepo Structure
 ```
-/client   -> Vite + frontend (Walkman-style UI)
+/client   -> Bun (native HTML-import bundler) + React frontend (Walkman-style UI)
 /server   -> Bun (WebSocket conductor + Slack integration + static file serving)
 /docs     -> SPEC.md, SYSTEM.md, AI-DEV-LOG.md
 ```
@@ -108,7 +128,8 @@ interface AuthProvider {
 
 ### Communication
 - **HTTP**: OAuth callback, static assets, health checks.
-- **WebSocket**: Real-time playback state sync (current track, position, queue, control events).
+- **Socket.io** (over WebSocket): Real-time playback state sync (current
+  track, position, queue, control events), broadcast via `io.emit()`.
 
 ### Data Flow
 1. Server polls Slack channel → extracts YouTube links → builds playlist.
@@ -158,6 +179,8 @@ Skins are loaded dynamically; switching skins does not reset playback state.
 | AuthProvider interface | Allows swapping auth mechanisms without touching app logic. |
 | Skin interface | Decouples presentation from playback logic; easy to add themes. |
 | YouTube Data API for ads | Reuses existing YouTube integration; Shorts are native ad format. |
+| Socket.io over raw WebSocket | Simplified connect/disconnect event handling and broadcast API. Note: the grace-period reconnection logic itself is a stateless global timestamp calculation (see Playback Bootstrap & Idle Behavior), not tied to per-client session identity — Socket.io is used for API convenience, not for its built-in session resumption. |
+| Bun native bundler over Vite | Unifies the toolchain around Bun for both client and server, reducing config surface. Trade-off: less common local dev pattern than Vite for anyone unfamiliar with Bun's HTML-import bundling. |
 
 ---
 

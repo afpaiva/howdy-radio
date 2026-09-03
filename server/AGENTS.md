@@ -1,111 +1,119 @@
 ---
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
+description: Server conventions for Howdy Radio backend (Bun-based WebSocket conductor)
 globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
 alwaysApply: false
 ---
 
-Default to using Bun instead of Node.js.
+# AGENTS.md — server/
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+This file scopes agent behavior for the `/server` package only. For
+project-wide context, see `/docs/SPEC.md` and `/docs/SYSTEM.md`.
 
-## APIs
+## Purpose
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+Bun backend for Howdy Radio. Single process that:
+1. Serves the static client build (`/client/dist`)
+2. Exposes the WebSocket "conductor" endpoint on the same port
+3. Fetches/maintains the playlist from Slack
+4. Fetches/injects ads from YouTube Shorts
+5. Owns the authoritative playback timeline
+
+## Structure
+
+server/
+src/
+conductor/ -> playback state machine, timeline, idle/grace logic
+slack/ -> bot token integration, playlist extraction, dedup
+youtube/ -> Shorts fetching for ads (YouTube Data API v3)
+auth/ -> AuthProvider interface + StubEmailProvider
+ws/ -> WebSocket message handling, broadcast
+seed/ -> mock playlist JSON for MOCK_MODE
+tests/ -> bun test unit tests
+index.ts -> Bun.serve() entrypoint
+
+
+## Hard rules (do not violate)
+
+1. **This server is the single source of truth for playback state.**
+   Current track, position, and queue live here and only here. Never
+   design an endpoint or message that lets a client dictate playback
+   state — clients only receive state and send control *intents*
+   (e.g. "join broadcast"), never state itself.
+2. **No audio re-hosting.** This server orchestrates *commands*
+   ("play track X at time Y"), never proxies, downloads, or streams
+   third-party audio bytes.
+3. **Two distinct Slack credentials, two distinct purposes.** Do not
+   conflate them:
+   - `SLACK_BOT_TOKEN` — server-side, read-only channel history +
+     `users:read`, used only for building the playlist.
+   - Auth (`AUTH_PROVIDER=stub` in v1) — unrelated to the bot token;
+     see `src/auth/`.
+4. **Mock mode is not optional.** If `SLACK_BOT_TOKEN` is unset, fall
+   back to `src/seed/playlist.json` automatically. Every feature that
+   touches Slack must have a mock-mode path — do not build a feature
+   that only works with real credentials.
+5. **Bootstrap concurrency.** The first connection after idle triggers
+   a random track/position pick. Concurrent first-connections must
+   resolve to the *same* pick via an in-process lock — never let two
+   simultaneous joins each pick independently.
+6. **Idle/grace period logic lives only in `conductor/`.** Do not
+   duplicate idle-state checks elsewhere; other modules read conductor
+   state, they don't reimplement timing logic.
+7. **Ads always play from the start; music tracks may start mid-way.**
+   Don't apply the random-start-position logic to ads.
 
 ## Testing
 
-Use `bun test` to run tests.
+Uses Bun's built-in test runner — no separate test framework.
 
-```ts#index.test.ts
-import { test, expect } from "bun:test";
+### Commands
+| Command | Purpose |
+|---|---|
+| `bun test` | Run all unit tests in `src/__tests__/` |
+| `bun run verify` | Full harness: test + typecheck + lint (see root scripts) |
 
-test("hello world", () => {
-  expect(1).toBe(1);
-});
-```
+### What to test here
+- Timeline/timestamp math (track position calculation, grace period
+  expiry, idle transitions) — pure logic, no network needed.
+- Ad distribution algorithm (segment-based random placement).
+- Slack link extraction + dedup by video ID.
+- Shorts duration filter (≤60s).
+- Bootstrap lock behavior under concurrent "first connect" simulation.
 
-## Frontend
+E2E synchronization behavior (two browsers, same track) is tested from
+`/client/tests/e2e/` via Playwright, but requires this server running
+(`bun run dev`) — don't duplicate that test here, just make sure
+`bun run dev` boots cleanly in mock mode for it to work.
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
+### Before finishing any task
+- Run `bun test` — all tests must pass.
+- Never comment out or skip a failing test to get to green. If a test
+  seems wrong, flag it rather than deleting it.
+- If you touched `conductor/`, double check the idle/grace period and
+  bootstrap-lock tests specifically — this is the most fragile part
+  of the system.
 
-Server:
+## Conventions
+- TypeScript strict mode.
+- Default to using Bun instead of Node.js.
+  - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
+  - Use `bun test` instead of `jest` or `vitest`
+  - Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
+  - Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
+  - Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
+  - Use `bunx <package> <command>` instead of `npx <package> <command>`
+  - Bun automatically loads `.env`, so don't use `dotenv`.
 
-```ts#index.ts
-import index from "./index.html"
+### APIs
+- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
+- Uses **Socket.io** (not raw `WebSocket`) for the real-time layer —
+  deliberate choice for connect/disconnect event handling and broadcast
+  API simplicity. See SPEC.md Key Technical Decisions.
+- Prefer `Bun.file` over `node:fs`'s readFile/writeFile.
+- `Bun.$`ls`` instead of `execa`.
 
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+### Frontend note
+This project uses **Vite** for the client (see `/client/AGENTS.md`), not
+Bun's HTML-import bundler. Do not suggest replacing Vite with
+`Bun.serve()` HTML imports — that decision was already made and
+documented in SPEC.md.
