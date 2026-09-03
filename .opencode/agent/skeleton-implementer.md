@@ -1,7 +1,7 @@
 ---
 name: skeleton-implementer
 description: Builds core types, interfaces, and shared state wiring
-mode: subagent
+mode: primary
 model: z-ai/glm-5.2:free
 permissions:
   edit: allow

@@ -1,7 +1,7 @@
 ---
 name: server-implementer
 description: Builds the Bun backend — WebSocket conductor, Slack integration, YouTube ads, and auth provider
-mode: subagent
+mode: primary
 model: z-ai/glm-5.2:free
 permissions:
   edit: allow

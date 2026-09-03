@@ -1,7 +1,7 @@
 ---
 name: skin-implementer
 description: Implements isolated UI modules conforming strictly to a shared interface
-mode: subagent
+mode: primary
 model: minimax/minimax-m3:free
 permissions:
   edit: allow

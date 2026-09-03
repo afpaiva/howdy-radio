@@ -1,7 +1,7 @@
 ---
 name: loop-fix
 description: Reads harness test outputs and iteratively fixes failing code
-mode: subagent
+mode: primary
 model: cohere/north-mini-code:free
 permissions:
   edit: allow

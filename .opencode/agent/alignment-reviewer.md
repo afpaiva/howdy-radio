@@ -1,7 +1,7 @@
 ---
 name: alignment-reviewer
 description: Audits SPEC.md and SYSTEM.md against the actual implementation, reporting misalignment
-mode: subagent
+mode: primary
 model: thinkingmachines/inkling:free
 permissions:
   edit: deny
