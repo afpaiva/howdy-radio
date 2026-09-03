@@ -33,3 +33,4 @@
   was incorrectly listed as a peerDependency in server (moved to
   devDependencies); added missing `typecheck`/`lint`/`build` scripts
   required by the documented harness.
+- Found an issue with OpenRouter preventing the agents to be called with subagent mode, changed mode from subagent to primary as proposed by the community.
