@@ -114,7 +114,7 @@ of who connects — no per-user/session identity involved).
 
 ### Monorepo Structure
 ```
-/client   -> Bun (native HTML-import bundler) + React frontend (Walkman-style UI)
+/client -> Vite + frontend
 /server   -> Bun (WebSocket conductor + Slack integration + static file serving)
 /docs     -> SPEC.md, SYSTEM.md, AI-DEV-LOG.md
 ```
@@ -180,7 +180,6 @@ Skins are loaded dynamically; switching skins does not reset playback state.
 | Skin interface | Decouples presentation from playback logic; easy to add themes. |
 | YouTube Data API for ads | Reuses existing YouTube integration; Shorts are native ad format. |
 | Socket.io over raw WebSocket | Simplified connect/disconnect event handling and broadcast API. Note: the grace-period reconnection logic itself is a stateless global timestamp calculation (see Playback Bootstrap & Idle Behavior), not tied to per-client session identity — Socket.io is used for API convenience, not for its built-in session resumption. |
-| Bun native bundler over Vite | Unifies the toolchain around Bun for both client and server, reducing config surface. Trade-off: less common local dev pattern than Vite for anyone unfamiliar with Bun's HTML-import bundling. |
 
 ---
 

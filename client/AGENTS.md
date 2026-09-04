@@ -6,9 +6,8 @@ project-wide context, see the root `/AGENTS.md` (if present) and
 
 ## Purpose
 
-Bun-bundled (native HTML imports) React frontend for Howdy Radio.
-Renders playback state received from the server via Socket.io, through
-a swappable skin system.
+Vite + React frontend for Howdy Radio. Renders playback state received
+from the server via WebSocket, through a swappable skin system.
 
 ## Structure
 

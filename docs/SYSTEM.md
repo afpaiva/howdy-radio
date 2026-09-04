@@ -175,13 +175,17 @@ AI-DEV-LOG.md, e.g.:]
   (Track A) since they share no files, while deliberately keeping the
   Conductor's core state logic as a single sequential implementation
   to avoid race conditions.
-- Kept Socket.io (over native Bun WebSocket) and Bun's native HTML-import
-  bundler (over Vite) after discovering both were already scaffolded and
-  working — updated SPEC.md/AGENTS.md to document these as deliberate
-  choices rather than reverting working infrastructure.
+- Kept Socket.io (over native Bun WebSocket) after discovering it was
+  already scaffolded and working — updated SPEC.md/AGENTS.md to document
+  this as a deliberate choice rather than reverting working infrastructure.
 - Simplified the reconnect grace-period design to a stateless global
   timestamp snapshot (no per-client/session identity needed) — any
   connection after idle computes elapsed time since the last
   disconnect and resumes or re-bootstraps accordingly.
+- Discovered an unintended deviation where the client had drifted from
+  Vite to Bun's native bundler (likely from a misread "cleanup" task),
+  and had already been documented as if intentional. Reverted to Vite
+  as originally specified and corrected the docs that had rationalized
+  the drift.
 
 See `/docs/AI-DEV-LOG.md` for the full chronological account.

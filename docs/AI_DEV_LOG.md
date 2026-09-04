@@ -10,7 +10,9 @@
 - Started SYSTEM.md with help of Claude Sonnet 5, and revised
 - Bootstrapped an initial Socket.io project in the server
 - Cleanup Vite project
-- Automated tests setup for agent harness, using Laguna S2.1. Split in 2 agents for this implementation: client and server
+- Automated tests setup for agent harness, using Poolside Laguna S 2.1
+  (poolside/laguna-s-2.1:free). Split in 2 agents for this
+  implementation: client and server
 - Created agens for Open Code, each one with an specific model: alignment-reviewer.md, skeleton-implementer.md, skin-implementer.md, loop-fix.md and server-implementer.
 - Removed the reviewer.md subagent (used a paid model, redundant with
   human+Claude review already happening); consolidated into
@@ -34,3 +36,6 @@
   devDependencies); added missing `typecheck`/`lint`/`build` scripts
   required by the documented harness.
 - Found an issue with OpenRouter preventing the agents to be called with subagent mode, changed mode from subagent to primary as proposed by the community.
+
+## Day 3
+- Correction of an unintended deviation to continue using Vite on the frontend.
