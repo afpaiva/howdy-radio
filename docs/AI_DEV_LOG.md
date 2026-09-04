@@ -50,3 +50,8 @@
   network availability.
 - Used Gemini to create detailed design descriptions for each skin in this project
   from image references.
+- Triggering the 5 agents in parallel at Friday 4th, 15:06 : The skins implementers and
+  the server implementer.
+- The 4 frontend agents finished the work around 15:15.
+- The server agent finished the work around 15:55 due to rate limits.
+- Introduced a skin-tester agent to create tests before mergint the 5 agents branches.
