@@ -40,3 +40,11 @@
 ## Day 3
 - Correction of an unintended deviation to continue using Vite on the frontend.
 - Ran alignment-reviewer agent to catch any initial docs misalignment
+- Issue starting the skeleton: had to replace openrouter/z-ai/glm-5.2:free by
+  openrouter/poolside/laguna-s-2.1:free as it wasn't available
+- Poolside Laguna S 2.1 hit a temporary upstream rate limit mid-session
+  (skeleton-implementer). Switched the active session to North Mini
+  Code (free) via OpenCode's model picker to continue without losing
+  progress, without changing the agent's default model configuration.
+- The agent finished the skeleton after stopping a few times due to openrouter
+  network availability.
