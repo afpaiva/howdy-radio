@@ -2,7 +2,7 @@
 name: loop-fix
 description: Reads harness test outputs and iteratively fixes failing code
 mode: primary
-model: cohere/north-mini-code:free
+model: openrouter/cohere/north-mini-code:free
 permissions:
   edit: allow
   bash: allow

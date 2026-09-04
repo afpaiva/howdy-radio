@@ -2,7 +2,7 @@
 name: skeleton-implementer
 description: Builds core types, interfaces, and shared state wiring
 mode: primary
-model: z-ai/glm-5.2:free
+model: openrouter/z-ai/glm-5.2:free
 permissions:
   edit: allow
   bash: ask
