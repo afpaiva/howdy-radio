@@ -48,3 +48,5 @@
   progress, without changing the agent's default model configuration.
 - The agent finished the skeleton after stopping a few times due to openrouter
   network availability.
+- Used Gemini to create detailed design descriptions for each skin in this project
+  from image references.
