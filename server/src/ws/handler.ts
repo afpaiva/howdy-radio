@@ -1,5 +1,5 @@
 import type { Server, Socket } from "socket.io";
-import type { PlaybackState, WsMessage } from "../types";
+import type { WsMessage } from "../types";
 import { Conductor } from "../conductor/conductor";
 import { SlackService } from "../slack/slack";
 import { YouTubeService } from "../youtube/youtube";

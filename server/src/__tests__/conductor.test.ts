@@ -105,9 +105,7 @@ describe("Conductor - Idle/Grace Period", () => {
 
   test("reconnect after grace period triggers fresh bootstrap", async () => {
     // Connect a client
-    const state1 = await conductor.onClientConnect();
-    const trackId1 = state1.currentTrack?.id;
-    const position1 = state1.position;
+    await conductor.onClientConnect();
 
     // Disconnect
     conductor.onClientDisconnect();
@@ -123,7 +121,6 @@ describe("Conductor - Idle/Grace Period", () => {
     const state2 = await conductor.onClientConnect();
 
     // Should bootstrap a new track (with high probability, different from original)
-    const trackId2 = state2.currentTrack?.id;
     // The position should be reset (fresh bootstrap with random position)
     expect(state2.position).toBeGreaterThanOrEqual(0);
   });
@@ -289,7 +286,6 @@ describe("Conductor - State Management", () => {
     // Bootstrap and then disconnect
     const state1 = await conductor.onClientConnect();
     const trackId1 = state1.currentTrack?.id;
-    const position1 = state1.position;
 
     conductor.onClientDisconnect();
 
