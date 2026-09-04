@@ -36,3 +36,4 @@
 * The server agent finished its work around 15:55 due to rate limits.
 * Introduced a `skin-tester` agent to create tests before merging the branches from the 5 agents.
 * Merged the `skin-tester` tests into the other agents and let them fix issues until all tests passed.
+* Finally, opened the 5 PRs targeting main. Got 2 merge simple conflicts on server implementation.
