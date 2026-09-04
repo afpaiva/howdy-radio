@@ -18,17 +18,17 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
-    "vite": "^7",
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^9",
     "jsdom": "^30.0.1",
     "playwright": "^1.62.1",
     "typescript": "latest",
-    "vitest": "^5.0.0",
-    "eslint": "^9"
+    "vite": "^8",
+    "vitest": "^5.0.0"
   }
 }
