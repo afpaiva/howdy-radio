@@ -39,3 +39,4 @@
 
 ## Day 3
 - Correction of an unintended deviation to continue using Vite on the frontend.
+- Ran alignment-reviewer agent to catch any initial docs misalignment
