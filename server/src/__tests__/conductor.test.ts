@@ -82,6 +82,23 @@ describe("Conductor - Bootstrap", () => {
       expect(state.currentTrack?.id).toBe(mockTrack1.id);
     }
   });
+
+  test("bootstrapFresh preserves existing queue (Up Next stays populated)", async () => {
+    await conductor.onClientConnect();
+    
+    // Set up a playlist with ads, which populates the queue
+    const tracks = [mockTrack1, mockTrack2, { ...mockTrack1, id: "v3" }];
+    const ads = [{ ...mockAd, id: "ad1" }];
+    conductor.setPlaylist(tracks, ads, 1);
+    
+    // Bootstrap with a specific track — this should NOT wipe the queue
+    const state = conductor.bootstrapFresh([mockTrack1]);
+    
+    // Queue should still be populated (not empty)
+    expect(state.queue.length).toBeGreaterThan(0);
+    // The queue should contain the injected ads and music tracks
+    expect(state.queue.some((t) => t.isAd)).toBe(true);
+  });
 });
 
 describe("Conductor - Idle/Grace Period", () => {
