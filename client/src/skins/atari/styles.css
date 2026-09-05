@@ -1,0 +1,297 @@
+/**
+ * /client/src/skins/atari/styles.css
+ *
+ * Atari / Space Invaders aesthetic — late-1970s / early-1980s 8-bit arcade
+ * graphics. Reference: /docs/skins_scopes/ATARI.md.
+ *
+ * Design pillars:
+ *   1. Pitch-black (#000000) canvas (CRT void).
+ *   2. Strict 1px white grid dividing content panels.
+ *   3. Aliased, blocky pixel geometry — no border-radius, no softening,
+ *      no anti-aliasing; `image-rendering: pixelated` for any raster art.
+ *   4. Flat saturated neon palette against pure black; no gradients.
+ *   5. Heavy italicized all-caps titles with stepped 3D extrusion
+ *      shadows (crimson offset, down-and-right).
+ *   6. Symmetrical, centered sprite layout.
+ *
+ * Scoping: every selector is prefixed with `[data-skin="atari"]` so this
+ * stylesheet cannot leak into other skins.
+ */
+
+[data-skin="atari"] {
+  /* Color tokens — keep this palette in sync with /docs/skins_scopes/ATARI.md. */
+  --atari-void: #000000;
+  --atari-grid: #ffffff;
+  --atari-yellow: #ffff00;
+  --atari-lime: #00ff00;
+  --atari-cyan: #00ffff;
+  --atari-red: #ff0000;
+  --atari-crimson: #8b0000;
+  --atari-purple: #a070ff;
+  --atari-orange: #ff8800;
+  --atari-white: #ffffff;
+
+  background-color: var(--atari-void);
+  color: var(--atari-lime);
+  font-family: "Courier New", "Lucida Console", monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+
+  /* Block every form of smoothing — 8-bit purity. */
+  font-smooth: never;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+
+  /* Strict pixelated rendering for any raster / SVG art. */
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+
+  /* Centered, symmetrical composition. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 16px;
+  min-height: 100vh;
+  border: 1px solid var(--atari-grid);
+  box-sizing: border-box;
+}
+
+/* ────────────────────────────  Header bar  ──────────────────────────── */
+
+[data-skin="atari"] [data-testid="connection-status"] {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid var(--atari-grid);
+  background-color: var(--atari-void);
+  color: var(--atari-cyan);
+  font-size: 12px;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+[data-skin="atari"] [data-testid="connection-status"] .atari-label {
+  color: var(--atari-grid);
+}
+
+[data-skin="atari"] [data-testid="connection-status"][data-status="connected"] {
+  color: var(--atari-lime);
+  border-color: var(--atari-lime);
+}
+
+[data-skin="atari"] [data-testid="connection-status"][data-status="connecting"] {
+  color: var(--atari-orange);
+  border-color: var(--atari-orange);
+}
+
+[data-skin="atari"] [data-testid="connection-status"][data-status="disconnected"] {
+  color: var(--atari-red);
+  border-color: var(--atari-red);
+}
+
+/* ────────────────────────  Now Playing panel  ──────────────────────── */
+
+[data-skin="atari"] [data-testid="current-track"] {
+  width: 100%;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--atari-grid);
+  background-color: var(--atari-void);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+/* Sprite canvas — a centered, symmetrical 8x8-grid pixel art block
+ * representing the "current track" mascot (an alien invader shape). */
+[data-skin="atari"] [data-testid="sprite-art"] {
+  align-self: center;
+  width: 96px;
+  height: 96px;
+  background-color: var(--atari-void);
+  border: 1px solid var(--atari-grid);
+  /* Render the sprite as a sharp 8-bit bitmap via repeating gradients. */
+  background-image:
+    /* Eye row (cyan pixels) */
+    linear-gradient(var(--atari-cyan), var(--atari-cyan)),
+    /* Body fill (lime pixels) */
+    linear-gradient(var(--atari-lime), var(--atari-lime)),
+    /* Antennae / arms (yellow pixels) */
+    linear-gradient(var(--atari-yellow), var(--atari-yellow));
+  background-repeat: no-repeat;
+  background-size:
+    /* Eye row: two 8x8 cyan blocks, symmetrically placed */
+    8px 8px,
+    /* Body: centered 48x32 lime block */
+    48px 32px,
+    /* Antennae: two 8x8 yellow blocks at top */
+    8px 8px;
+  background-position:
+    /* Left eye */ 32px 24px,
+    /* Right eye */ 56px 24px,
+    /* Body fill */ center 32px,
+    /* Left arm antenna */ 24px 8px,
+    /* Right arm antenna */ 64px 8px;
+  image-rendering: pixelated;
+}
+
+/* ─────────────────────────  3D Extrusion Title  ─────────────────────── */
+
+/* Title with stepped crimson drop-shadow — extending down-right, two
+ * pixels per step, for that classic Space Invaders arcade marquee look. */
+[data-skin="atari"] [data-testid="track-title"] {
+  font-family: "Impact", "Arial Black", "Helvetica Neue", sans-serif;
+  font-style: italic;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: clamp(20px, 3vw, 32px);
+  line-height: 1.1;
+  margin: 0;
+  padding: 8px 12px;
+  text-align: center;
+  color: var(--atari-yellow);
+  background-color: var(--atari-void);
+  /* Thick black outline for high contrast against grid lines. */
+  -webkit-text-stroke: 2px var(--atari-void);
+  text-shadow:
+    /* Step 1 — closer crimson shadow */
+    2px 2px 0 var(--atari-crimson),
+    2px 2px 0 1px var(--atari-void),
+    /* Step 2 — extended red shadow */
+    4px 4px 0 var(--atari-red),
+    /* Step 3 — furthest black drop */
+    6px 6px 0 var(--atari-void);
+  border: 1px solid var(--atari-yellow);
+}
+
+/* ─────────────────────────────  Meta row  ───────────────────────────── */
+
+[data-skin="atari"] [data-testid="track-meta"] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--atari-cyan);
+  margin: 0;
+}
+
+[data-skin="atari"] [data-testid="track-meta"] [data-testid="posted-by"] {
+  color: var(--atari-purple);
+}
+
+[data-skin="atari"] [data-testid="track-meta"] [data-testid="play-state"] {
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  color: var(--atari-lime);
+}
+
+[data-skin="atari"] [data-testid="track-meta"] [data-testid="play-state"][data-playing="false"] {
+  color: var(--atari-orange);
+}
+
+/* ─────────────────────────────  Position  ───────────────────────────── */
+
+[data-skin="atari"] [data-testid="position"] {
+  font-size: 14px;
+  text-align: center;
+  color: var(--atari-lime);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  padding: 4px 0;
+  border-top: 1px dashed var(--atari-grid);
+  border-bottom: 1px dashed var(--atari-grid);
+}
+
+/* ─────────────────────────────  Track link  ─────────────────────────── */
+
+[data-skin="atari"] [data-testid="track-link"] {
+  display: inline-block;
+  text-align: center;
+  color: var(--atari-orange);
+  background-color: var(--atari-void);
+  border: 1px solid var(--atari-orange);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-decoration: none;
+  letter-spacing: 0.1em;
+  align-self: center;
+}
+
+[data-skin="atari"] [data-testid="track-link"]:hover,
+[data-skin="atari"] [data-testid="track-link"]:focus-visible {
+  color: var(--atari-yellow);
+  border-color: var(--atari-yellow);
+  outline: none;
+}
+
+/* ─────────────────────────────  Idle state  ─────────────────────────── */
+
+[data-skin="atari"] [data-testid="no-track"] {
+  width: 100%;
+  text-align: center;
+  margin-top: 24px;
+  padding: 24px;
+  border: 1px dashed var(--atari-orange);
+  color: var(--atari-orange);
+  font-style: italic;
+  font-size: 14px;
+}
+
+/* ─────────────────────────────  Queue row  ──────────────────────────── */
+
+[data-skin="atari"] [data-testid="queue"] {
+  width: 100%;
+  margin-top: 16px;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--atari-grid);
+  background-color: var(--atari-void);
+}
+
+[data-skin="atari"] [data-testid="queue"] h2 {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--atari-cyan);
+  border-bottom: 1px solid var(--atari-grid);
+  text-align: center;
+  letter-spacing: 0.2em;
+}
+
+[data-skin="atari"] [data-testid="queue-item"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--atari-lime);
+  border-bottom: 1px dashed var(--atari-grid);
+}
+
+[data-skin="atari"] [data-testid="queue-item"]:last-child {
+  border-bottom: none;
+}
+
+[data-skin="atari"] [data-testid="queue-item"][data-ad="true"] {
+  color: var(--atari-orange);
+}
+
+[data-skin="atari"] [data-testid="queue-item"] .atari-ad-tag {
+  color: var(--atari-red);
+  font-style: italic;
+  letter-spacing: 0.15em;
+}
