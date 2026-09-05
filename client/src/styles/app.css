@@ -135,6 +135,99 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════════ */
+/* Hamburger menu & skin dropdown (mobile)                                   */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-hamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: var(--howdy-radius-md);
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.howdy-hamburger-line {
+  display: block;
+  width: 24px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--howdy-text-strong);
+  transition: all var(--howdy-transition);
+  margin: 0 auto;
+}
+
+.howdy-skin-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1001;
+  min-width: 160px;
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: var(--howdy-radius-lg);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: all var(--howdy-transition);
+}
+
+.howdy-skin-dropdown--open {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.howdy-skin-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--howdy-radius-md);
+  font-family: var(--howdy-font-bubble);
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--howdy-text-strong);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--howdy-transition);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.howdy-skin-dropdown-item:hover,
+.howdy-skin-dropdown-item:focus-visible {
+  background: rgba(0, 0, 0, 0.04);
+  outline: none;
+}
+
+.howdy-skin-dropdown-item--active {
+  background: linear-gradient(135deg, var(--howdy-pill-periwinkle), #7A87C7);
+  color: #FFFFFF;
+}
+
+.howdy-skin-dropdown-item--active:hover {
+  background: linear-gradient(135deg, #7A87C7, var(--howdy-pill-periwinkle));
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
 /* Root app container                                                       */
 /* ═══════════════════════════════════════════════════════════════════════ */
 
@@ -382,9 +475,22 @@
     height: 28px;
   }
 
-  .howdy-header-pill {
-    padding: 6px 14px;
-    font-size: 0.7rem;
+  .howdy-header-pills {
+    display: none;
+  }
+
+  .howdy-hamburger {
+    display: flex;
+  }
+
+  .howdy-header-nav {
+    position: relative;
+  }
+
+  .howdy-skin-dropdown {
+    right: 0;
+    left: auto;
+    min-width: 180px;
   }
 
   .howdy-pre-launch {

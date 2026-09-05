@@ -98,7 +98,7 @@ export default function App() {
  * Header — traditional horizontal bar fixed to top.
  *
  * Left: horizontal logo. Right: "Tune in" button before tuning in,
- * skin selector pills after tuning in.
+ * skin selector pills after tuning in (hamburger menu on mobile).
  * Full width, no border radius, sticky to top.
  */
 function Header({
@@ -114,6 +114,13 @@ function Header({
   tunedIn: boolean;
   onTuneIn: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleSkinSelect = (id: string) => {
+    onChange(id);
+    setMenuOpen(false);
+  };
+
   return (
     <header className="howdy-header" data-testid="header">
       <a href="/" className="howdy-header-logo" aria-label="Howdy Radio home">
@@ -129,17 +136,52 @@ function Header({
             Tune in
           </button>
         ) : (
-          skins.map((s) => (
+          <>
+            <div className="howdy-header-pills">
+              {skins.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className="howdy-header-pill"
+                  onClick={() => onChange(s.id)}
+                  data-active={s.id === activeId ? "true" : "false"}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
             <button
-              key={s.id}
               type="button"
-              className="howdy-header-pill"
-              onClick={() => onChange(s.id)}
-              data-active={s.id === activeId ? "true" : "false"}
+              className="howdy-hamburger"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-expanded={menuOpen}
+              aria-controls="skin-menu"
+              aria-label="Open skin selector"
             >
-              {s.name}
+              <span className="howdy-hamburger-line" />
+              <span className="howdy-hamburger-line" />
+              <span className="howdy-hamburger-line" />
             </button>
-          ))
+            <div
+              id="skin-menu"
+              className={`howdy-skin-dropdown${menuOpen ? " howdy-skin-dropdown--open" : ""}`}
+              role="menu"
+              aria-orientation="vertical"
+            >
+              {skins.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="menuitem"
+                  className={`howdy-skin-dropdown-item${s.id === activeId ? " howdy-skin-dropdown-item--active" : ""}`}
+                  onClick={() => handleSkinSelect(s.id)}
+                  data-active={s.id === activeId ? "true" : "false"}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </nav>
     </header>
