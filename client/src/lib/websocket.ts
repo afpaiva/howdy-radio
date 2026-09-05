@@ -18,6 +18,7 @@ import type {
   ClientToServerEvents,
   ConnectionStatus,
   PlaybackState,
+  PostedBy,
   ServerToClientEvents,
   Track,
   WirePlaybackState,
@@ -49,7 +50,7 @@ export interface PlaybackHookResult {
  * the client's WirePlaybackState:
  *
  *   Server Track:  { id, title, duration, isAd, postedBy: { id, displayName, realName } }
- *   Client Track:  { videoId, title, url, duration, isAd, postedBy: string }
+ *   Client Track:  { videoId, title, url, duration, isAd, postedBy: PostedBy }
  *
  * This adapter normalizes the raw server payload at the boundary so
  * every skin receives data matching the client-side contract.
@@ -57,13 +58,21 @@ export interface PlaybackHookResult {
 
 type RawPostedBy = string | { id: string; displayName?: string; realName?: string } | undefined;
 
-/** Extract a displayable poster name from either a string or Slack user object. */
-function normalizePostedBy(raw: RawPostedBy): string {
-  if (typeof raw === "string") return raw;
-  if (raw && typeof raw === "object") {
-    return raw.displayName || raw.realName || raw.id || "unknown";
+/** Normalize a string or Slack user object into the client's PostedBy shape. */
+function normalizePostedBy(raw: RawPostedBy): PostedBy {
+  if (typeof raw === "string") {
+    const name = raw.length > 0 ? raw : "unknown";
+    return { id: name, displayName: name };
   }
-  return "unknown";
+  if (raw && typeof raw === "object") {
+    const displayName = raw.displayName || raw.realName || raw.id || "unknown";
+    return {
+      id: raw.id || displayName,
+      displayName,
+      ...(raw.realName ? { realName: raw.realName } : {}),
+    };
+  }
+  return { id: "unknown", displayName: "unknown" };
 }
 
 /** Normalize a single raw server track into the client's Track shape. */
@@ -144,7 +153,7 @@ export function usePlayback(): PlaybackHookResult {
 
     // Full server-authoritative snapshot — on connect and on any change.
     // Normalize the raw server payload to match the client-side contract
-    // (postedBy as string, videoId instead of id, synthesized url field).
+    // (postedBy as PostedBy, videoId instead of id, synthesized url field).
     socket.on("state", (snapshot: WirePlaybackState) => {
       const state = normalizeState(snapshot);
       setState((prev) => ({
