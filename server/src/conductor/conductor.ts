@@ -188,7 +188,7 @@ export class Conductor {
     return {
       currentTrack: selectedTrack,
       position: randomPosition,
-      queue: [],
+      queue: [...this.state.queue],
       isPlaying: true,
       lastUpdated: now,
       clientCount: this.state.clientCount,
@@ -227,7 +227,7 @@ export class Conductor {
     const state: PlaybackState = {
       currentTrack: selectedTrack,
       position: randomPosition,
-      queue: [],
+      queue: [...this.state.queue],
       isPlaying: true,
       lastUpdated: now,
       clientCount: 1,

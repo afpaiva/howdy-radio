@@ -44,3 +44,4 @@
 * Worked on the external resources: - Slack channel, bot token, YouTube keys, etc.
 * Wrote server apis integrations prompts and more skins improvements to run in parallel in the next iteration.
 * Reviewed the "queue shown in UI" divergence flagged by alignment-reviewer. Decided to keep it and update SPEC.md instead of reverting — the feature added real UX value across all 5 skins, and the existing contract tests already validated it correctly.
+* Client bug reports (queue flicker, refresh reset) were observed while testing the new client against the OLD (pre-integration) server, before merge — re-verify both after merging fix/client-player and fix/server-integration, since some symptoms may be resolved by the server-side protocol fixes alone.

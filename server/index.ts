@@ -104,8 +104,11 @@ async function refreshPlaylist(): Promise<void> {
   }
 }
 
-// Initial playlist load
-refreshPlaylist().catch(console.error);
+// Initial playlist load — must complete before accepting clients so the
+// first `state` broadcast (on connect) includes the full queue. Otherwise
+// clients see an empty "Up Next" list that briefly disappears and reappears
+// when the playlist loads 1s later (queue flicker bug).
+await refreshPlaylist().catch(console.error);
 
 // Refresh playlist periodically (every 5 minutes)
 setInterval(refreshPlaylist, 5 * 60 * 1000);
