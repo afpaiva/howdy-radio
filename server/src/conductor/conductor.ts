@@ -155,7 +155,7 @@ export class Conductor {
       // Try to resume the same track
       const track = this.findTrackById(this.idleSnapshot.trackId);
       if (track && this.idleSnapshot.position + elapsed < track.duration) {
-           // Resume same track at position + elapsed
+        // Resume same track at position + elapsed
         const resumedState: PlaybackState = {
           currentTrack: track,
           position: this.idleSnapshot.position + elapsed,
@@ -169,18 +169,25 @@ export class Conductor {
       }
     }
 
-     // Grace period expired or track would have ended - fresh bootstrap
+    // Grace period expired or track would have ended - fresh bootstrap
     // Note: idleSnapshot is cleared in acquireBootstrapLock after applying state
     return this.bootstrapFresh();
-   }
+  }
 
   /**
    * Fresh bootstrap: pick a random track from the playlist and start at a random position.
    * Per SPEC.md: "pick a new random track, and start at a random position within it"
+   *
+   * @param playlist Optional explicit playlist (used by tests). Defaults to the
+   *   current playlist (real fetched or seed).
+   * @param useRandomStart When true (default), picks a random start position within
+   *   the track (30s window from end). When false, starts at position 0 — used
+   *   for non-bootstrap track transitions (e.g. queue exhausted during live playback).
    */
-  bootstrapFresh(playlist?: Track[]): PlaybackState {
+  bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
     const tracks = playlist ?? this.getAvailableTracks();
     const musicTracks = tracks.filter((t) => !t.isAd);
+    const now = Math.floor(Date.now() / 1000);
 
     if (musicTracks.length === 0) {
       return {
@@ -188,8 +195,8 @@ export class Conductor {
         position: 0,
         queue: [],
         isPlaying: false,
-        lastUpdated: Math.floor(Date.now() / 1000),
-        clientCount: 1,
+        lastUpdated: now,
+        clientCount: this.state.clientCount,
       };
     }
 
@@ -197,19 +204,24 @@ export class Conductor {
     const randomIndex = Math.floor(Math.random() * musicTracks.length);
     const selectedTrack = musicTracks[randomIndex]!;
 
-    // Start at a random position within the track
-    // Music tracks may start mid-way (per hard rule #7)
-    const maxStartPosition = Math.max(0, selectedTrack.duration - 30);
-    const randomPosition = Math.floor(Math.random() * (maxStartPosition + 1));
+    let position: number;
+    if (useRandomStart) {
+      // Start at a random position within the track (genuine bootstrap)
+      // Music tracks may start mid-way (per hard rule #7)
+      const maxStartPosition = Math.max(0, selectedTrack.duration - 30);
+      position = Math.floor(Math.random() * (maxStartPosition + 1));
+    } else {
+      // Non-bootstrap transition: start from beginning
+      position = 0;
+    }
 
-    const now = Math.floor(Date.now() / 1000);
     const state: PlaybackState = {
       currentTrack: selectedTrack,
-      position: randomPosition,
+      position,
       queue: [],
       isPlaying: true,
       lastUpdated: now,
-      clientCount: 1,
+      clientCount: this.state.clientCount,
     };
 
     this.applyState(state);
@@ -239,16 +251,15 @@ export class Conductor {
 
       // Check if current track has ended
       if (position >= currentTrack.duration) {
-        // Move to next track in queue
+        // Move to next track in queue (ads and music both start at 0)
         if (queue.length > 0) {
           const nextTrack = queue.shift()!;
           currentTrack = nextTrack;
-          // Ads always play from the start (per hard rule #7)
-          position = nextTrack.isAd ? 0 : 0;
-          // For music tracks, start at beginning (we already set position above)
+          position = 0; // All tracks start from beginning on queue advance
         } else {
-          // Queue is empty - pick new track
-          const newState = this.bootstrapFresh();
+          // Queue is empty - pick new track without random start position
+          // (non-bootstrap transition: start from beginning)
+          const newState = this.bootstrapFresh(undefined, false);
           currentTrack = newState.currentTrack;
           queue = newState.queue;
           position = newState.position;
@@ -272,54 +283,54 @@ export class Conductor {
     this.state = state;
   }
 
-   /**
-    * Inject ads into the queue.
-    * Per SPEC.md: divide queue into ADS_COUNT equal segments and randomly select
-    * one ad position per segment. Ads always play from the start.
-    * The ad is inserted at a random position *within* each segment, not always
-    * appended at the end.
-    */
-   injectAds(tracks: Track[], ads: Track[], adsCount: number): Track[] {
-     if (ads.length === 0 || tracks.length === 0) {
-       return [...tracks];
-     }
+  /**
+   * Inject ads into the queue.
+   * Per SPEC.md: divide queue into ADS_COUNT equal segments and randomly select
+   * one ad position per segment. Ads always play from the start.
+   * The ad is inserted at a random position *within* each segment, not always
+   * appended at the end.
+   */
+  injectAds(tracks: Track[], ads: Track[], adsCount: number): Track[] {
+    if (ads.length === 0 || tracks.length === 0) {
+      return [...tracks];
+    }
 
-     const effectiveAdsCount = Math.min(adsCount, tracks.length);
-     const segmentSize = Math.floor(tracks.length / effectiveAdsCount);
+    const effectiveAdsCount = Math.min(adsCount, tracks.length);
+    const segmentSize = Math.floor(tracks.length / effectiveAdsCount);
 
-     const result: Track[] = [];
+    const result: Track[] = [];
 
-     for (let i = 0; i < effectiveAdsCount; i++) {
-       const segmentStart = i * segmentSize;
-       const segmentEnd =
-         i === effectiveAdsCount - 1
-           ? tracks.length
-           : (i + 1) * segmentSize;
+    for (let i = 0; i < effectiveAdsCount; i++) {
+      const segmentStart = i * segmentSize;
+      const segmentEnd =
+        i === effectiveAdsCount - 1
+          ? tracks.length
+          : (i + 1) * segmentSize;
 
-       const segmentTracks = tracks.slice(segmentStart, segmentEnd);
+      const segmentTracks = tracks.slice(segmentStart, segmentEnd);
 
-       // Pick a random position within this segment to insert the ad (0 to segmentLength)
-       const insertPos = Math.floor(Math.random() * (segmentTracks.length + 1));
+      // Pick a random position within this segment to insert the ad (0 to segmentLength)
+      const insertPos = Math.floor(Math.random() * (segmentTracks.length + 1));
 
-       // Add music tracks before the ad position
-       for (let j = 0; j < insertPos; j++) {
-         result.push(segmentTracks[j]!);
-       }
+      // Add music tracks before the ad position
+      for (let j = 0; j < insertPos; j++) {
+        result.push(segmentTracks[j]!);
+      }
 
-       // Insert a random ad at the random position within this segment
-       if (i < ads.length) {
-         const ad = ads[Math.floor(Math.random() * ads.length)]!;
-         result.push({ ...ad }); // Clone to avoid mutation
-       }
+      // Insert a random ad at the random position within this segment
+      if (i < ads.length) {
+        const ad = ads[Math.floor(Math.random() * ads.length)]!;
+        result.push({ ...ad }); // Clone to avoid mutation
+      }
 
-       // Add remaining music tracks after the ad position
-       for (let j = insertPos; j < segmentTracks.length; j++) {
-         result.push(segmentTracks[j]!);
-       }
-     }
+      // Add remaining music tracks after the ad position
+      for (let j = insertPos; j < segmentTracks.length; j++) {
+        result.push(segmentTracks[j]!);
+      }
+    }
 
-     return result;
-   }
+    return result;
+  }
 
   /**
    * Get the current state for broadcasting to clients.

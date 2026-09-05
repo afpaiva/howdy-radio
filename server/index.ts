@@ -258,8 +258,24 @@ async function refreshPlaylist(): Promise<void> {
       youtubeService.fetchShorts(),
     ]);
 
-    conductor.setPlaylist(tracks, ads, config.adsCount);
-    console.log(`Playlist refreshed: ${tracks.length} tracks, ${ads.length} ads`);
+    // Fetch real video durations for Slack-sourced tracks.
+    // In mock mode, tracks already have correct durations from seed data (duration > 0).
+    // In production mode, tracks have duration: 0 and need real durations fetched.
+    const tracksNeedingDurations = tracks.filter((t) => t.duration === 0);
+    if (tracksNeedingDurations.length > 0) {
+      const videoIds = tracksNeedingDurations.map((t) => t.id);
+      const durationMap = await youtubeService.fetchVideoDurations(videoIds);
+      const updatedTracks = tracks.map((t) => ({
+        ...t,
+        // Use real duration if available; fall back to 180s default for music videos
+        duration: durationMap.get(t.id) ?? (t.duration > 0 ? t.duration : 180),
+      }));
+      conductor.setPlaylist(updatedTracks, ads, config.adsCount);
+      console.log(`Playlist refreshed: ${updatedTracks.length} tracks, ${ads.length} ads (durations fetched)`);
+    } else {
+      conductor.setPlaylist(tracks, ads, config.adsCount);
+      console.log(`Playlist refreshed: ${tracks.length} tracks, ${ads.length} ads`);
+    }
   } catch (error) {
     console.error("Failed to refresh playlist:", error);
   }
