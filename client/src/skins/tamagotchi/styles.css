@@ -1,0 +1,386 @@
+/**
+ * /client/src/skins/tamagotchi/styles.css
+ *
+ * Visual styling for the tamagotchi skin. Per
+ * docs/skins_scopes/TAMAGOTCHI.md this is a 90s handheld virtual-pet:
+ * smooth egg-shaped plastic shell, sky-blue body with magenta/yellow
+ * Memphis-pop graphics, jagged starburst screen bezel, inset
+ * monochrome LCD with an olive tint, a faint wavy background pattern,
+ * and coarse black-on-olive pixel art for sprites & UI icons.
+ *
+ * Loaded once from `./index.tsx`. No global selectors — every rule
+ * is scoped under `.tamagotchi-shell` so this skin cannot leak into
+ * any other skin.
+ */
+
+.tamagotchi-shell {
+  /* Color tokens, kept local to the skin. */
+  --tg-shell-sky: #2dbaeb;
+  --tg-shell-sky-deep: #1f9bc4;
+  --tg-shell-pink: #d61380;
+  --tg-shell-pink-deep: #a60e64;
+  --tg-shell-yellow: #fce013;
+  --tg-shell-white: #fbf7ee;
+  --tg-screen-light: #e1e897;
+  --tg-screen: #c5ce73;
+  --tg-screen-deep: #9da84e;
+  --tg-icon-strip: #b7b7a8;
+  --tg-pixel-black: #000000;
+
+  position: relative;
+  width: min(360px, 100%);
+  padding: 36px 28px 64px;
+  border-radius: 50% / 38%;
+  background:
+    /* ambient highlight along the top of the curve */
+    radial-gradient(
+      ellipse at 50% 18%,
+      var(--tg-shell-white) 0%,
+      transparent 55%
+    ),
+    /* main sky-blue body with subtle vertical falloff */
+    linear-gradient(
+      180deg,
+      var(--tg-shell-sky) 0%,
+      var(--tg-shell-sky) 60%,
+      var(--tg-shell-sky-deep) 100%
+    );
+  box-shadow:
+    inset 0 -10px 24px rgba(0, 0, 0, 0.18),
+    inset 0 8px 16px rgba(255, 255, 255, 0.45),
+    0 14px 32px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  font-family: "Courier New", ui-monospace, monospace;
+  color: var(--tg-pixel-black);
+}
+
+/* Decorative Memphis-pop graphics overlaid on the shell. */
+.tamagotchi-shell-decor {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Jagged starburst bezel framing the screen. */
+.tamagotchi-bezel-frame {
+  position: relative;
+  width: min(240px, 100%);
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tamagotchi-bezel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
+}
+
+/* The inset square LCD window. Drop-shadow on the inner edge gives the
+   "glass panel depth inside the plastic shell" described in the spec. */
+.tamagotchi-screen {
+  position: relative;
+  width: 78%;
+  height: 78%;
+  background:
+    linear-gradient(
+      135deg,
+      var(--tg-screen-light) 0%,
+      var(--tg-screen) 100%
+    );
+  box-shadow:
+    inset 0 0 0 2px var(--tg-shell-pink-deep),
+    inset 0 4px 10px rgba(0, 0, 0, 0.35),
+    inset 0 -2px 6px rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Wavy pattern printed on the LCD glass — sits behind everything else. */
+.tamagotchi-lcd-pattern {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* LCD content layout. */
+.tamagotchi-lcd-content {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 2px 4px;
+  box-sizing: border-box;
+}
+
+.tamagotchi-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--tg-icon-strip);
+  height: 14%;
+  padding: 2px 6px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.tamagotchi-status-top {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.tamagotchi-status-bottom {
+  border-top: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+/* The little "signal" dot in the first slot — lights up when the socket
+   is connected. Falls back to the spec's "soft" hand-doodled aesthetic. */
+.tamagotchi-signal-dot {
+  width: 5px;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 50%;
+}
+
+.tamagotchi-signal-dot[data-on="true"] {
+  background: var(--tg-pixel-black);
+}
+
+.tamagotchi-signal-dot[data-blink="true"] {
+  animation: tg-blink 0.9s steps(2, end) infinite;
+}
+
+/* Tiny "AD" / "TRK" tag in the bottom-right of the status strip. */
+.tamagotchi-ad-flag {
+  font-size: 7px;
+  letter-spacing: 0.5px;
+  padding: 1px 3px;
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--tg-pixel-black);
+}
+
+.tamagotchi-ad-flag[data-on="true"] {
+  background: var(--tg-pixel-black);
+  color: var(--tg-screen-light);
+}
+
+.tamagotchi-screen-middle {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 2px;
+  min-height: 0;
+}
+
+.tamagotchi-pet {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tamagotchi-pet svg {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+.tamagotchi-track-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 9px;
+  line-height: 1.15;
+  color: var(--tg-pixel-black);
+  /* Force pixel-art font rendering — no antialiasing. */
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  text-rendering: geometricPrecision;
+}
+
+.tamagotchi-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tamagotchi-meta {
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tamagotchi-progress,
+.tamagotchi-state {
+  font-variant-numeric: tabular-nums;
+}
+
+.tamagotchi-state {
+  font-weight: 700;
+}
+
+.tamagotchi-link {
+  color: var(--tg-pixel-black);
+  text-decoration: underline;
+  text-underline-offset: 1px;
+  font-weight: 700;
+}
+
+.tamagotchi-link:hover,
+.tamagotchi-link:focus {
+  color: var(--tg-shell-pink-deep);
+  outline: none;
+}
+
+/* Hardware buttons under the screen. */
+.tamagotchi-buttons {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.tamagotchi-button {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(
+    180deg,
+    var(--tg-shell-pink) 0%,
+    var(--tg-shell-pink-deep) 100%
+  );
+  box-shadow:
+    inset 0 -2px 4px rgba(0, 0, 0, 0.35),
+    inset 0 2px 3px rgba(255, 255, 255, 0.35),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tamagotchi-button-cap {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tg-shell-white);
+  opacity: 0.6;
+}
+
+/* Tiny branding strip near the bottom of the shell. */
+.tamagotchi-brand {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--tg-shell-pink-deep);
+  text-transform: uppercase;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+@keyframes tg-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* Connection-status pill above the toy. Satisfies the shared skin
+   contract's required `connection-status` / `connection-label`
+   testids while keeping the 90s handheld aesthetic. */
+.tamagotchi-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--tg-shell-white);
+  box-shadow:
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 2px rgba(255, 255, 255, 0.7);
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--tg-pixel-black);
+}
+
+.tamagotchi-connection-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tg-pixel-black);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+
+/* Queue "inbox" panel rendered below the toy. Same pixel-art palette
+   so it reads as part of the toy system while satisfying the shared
+   skin contract's required `queue` / `queue-item` testids. */
+.tamagotchi-queue-panel {
+  width: min(360px, 100%);
+  background: var(--tg-screen);
+  box-shadow:
+    inset 0 0 0 2px var(--tg-shell-pink-deep),
+    inset 0 4px 10px rgba(0, 0, 0, 0.25),
+    inset 0 -2px 6px rgba(255, 255, 255, 0.25);
+  padding: 10px 14px 12px;
+  font-family: "Courier New", ui-monospace, monospace;
+  color: var(--tg-pixel-black);
+}
+
+.tamagotchi-queue-heading {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.tamagotchi-queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tamagotchi-queue-row {
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px 4px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tamagotchi-queue-row[data-ad="true"] {
+  background: var(--tg-pixel-black);
+  color: var(--tg-screen-light);
+}
