@@ -1,5 +1,6 @@
 import { test, expect, describe } from "bun:test";
 import { YouTubeService } from "../youtube/youtube";
+import { SeedPlaylist } from "../seed/playlist";
 
 describe("YouTubeService - Duration Parsing", () => {
   const youtubeService = new YouTubeService({
@@ -102,5 +103,40 @@ describe("YouTubeService - Ads Count", () => {
     });
     // When adsCount is undefined, getAdsCount returns the raw value (undefined || 3 = 3)
     expect(service.getAdsCount()).toBe(3);
+  });
+});
+
+describe("YouTubeService - Video Durations", () => {
+  test("fetchVideoDurations returns empty map in mock mode", async () => {
+    const service = new YouTubeService({
+      apiKey: undefined,
+      channelId: "channel",
+      adsCount: 3,
+    });
+    const durations = await service.fetchVideoDurations(["dQw4w9WgXcQ"]);
+    expect(durations.size).toBe(0);
+  });
+
+  test("fetchVideoDurations handles empty video IDs", async () => {
+    const service = new YouTubeService({
+      apiKey: "key",
+      channelId: "channel",
+      adsCount: 3,
+    });
+    const durations = await service.fetchVideoDurations([]);
+    expect(durations.size).toBe(0);
+  });
+});
+
+describe("YouTubeService - Durations for Slack Tracks", () => {
+  test("seed tracks have valid durations (mock mode provides correct durations)", () => {
+    // This test documents the known state: Slack-sourced tracks from
+    // extractYouTubeLinks() start with duration 0. The refreshPlaylist()
+    // function in index.ts fetches real durations via fetchVideoDurations()
+    // and updates them before storing in the conductor. In mock mode, the
+    // seed data already has correct durations.
+    const seedTracks = SeedPlaylist.getMusicTracks();
+    expect(seedTracks.length).toBeGreaterThan(0);
+    expect(seedTracks.every((t) => t.duration > 0)).toBe(true);
   });
 });

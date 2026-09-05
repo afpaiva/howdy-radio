@@ -44,3 +44,6 @@
 * Worked on the external resources: - Slack channel, bot token, YouTube keys, etc.
 * Wrote server apis integrations prompts and more skins improvements to run in parallel in the next iteration.
 * Reviewed the "queue shown in UI" divergence flagged by alignment-reviewer. Decided to keep it and update SPEC.md instead of reverting — the feature added real UX value across all 5 skins, and the existing contract tests already validated it correctly.
+* Client bug reports (queue flicker, refresh reset) were observed while testing the new client against the OLD (pre-integration) server, before merge — re-verify both after merging fix/client-player and fix/server-integration, since some symptoms may be resolved by the server-side protocol fixes alone.
+* Merged fix/server-integration into fix/client-player (not the reverse) to let the client run real E2E tests against the actual integrated server behavior, since the client agent was struggling to write meaningful tests against the old/mocked server. by setPlaylist() — causing an empty "Up Next" list - but correctly declined to fix it, staying within its own directory scope as instructed, and reported it back instead.
+* Relayed the bug report to the server-implementer session (still open in fix/server-integration) for a proper fix within its own scope.

@@ -5,6 +5,14 @@ export class Conductor {
   // Authoritative playback state
   private state: PlaybackState;
 
+  // Current playlist fetched from Slack (or seed in mock mode).
+  // Populated by setPlaylist(); used for bootstrap and track lookup.
+  private currentPlaylist: Track[] | null = null;
+
+  // Ads fetched from YouTube Shorts, used for queue rebuilding.
+  private currentAds: Track[] = [];
+  private currentAdsCount: number = 3;
+
   // Idle/grace period tracking
   private idleSnapshot: StateSnapshot | null = null; // Stored when last client disconnects
 
@@ -63,8 +71,9 @@ export class Conductor {
 
   /**
    * Called when a client disconnects. Stores idle snapshot if this was the last client.
+   * @returns true if this was the last client (playback clock halts)
    */
-  onClientDisconnect(): void {
+  onClientDisconnect(): boolean {
     if (this.state.clientCount > 0) {
       this.state.clientCount--;
     }
@@ -80,7 +89,9 @@ export class Conductor {
       // Stop the clock - mark as not playing
       this.state.isPlaying = false;
       this.state.lastUpdated = 0;
+      return true;
     }
+    return false;
   }
 
   /**
@@ -148,7 +159,7 @@ export class Conductor {
       // Try to resume the same track
       const track = this.findTrackById(this.idleSnapshot.trackId);
       if (track && this.idleSnapshot.position + elapsed < track.duration) {
-           // Resume same track at position + elapsed
+        // Resume same track at position + elapsed
         const resumedState: PlaybackState = {
           currentTrack: track,
           position: this.idleSnapshot.position + elapsed,
@@ -163,54 +174,33 @@ export class Conductor {
     }
 
     // Grace period expired or track would have ended - fresh bootstrap
-  // Note: idleSnapshot is cleared in acquireBootstrapLock after applying state
-
-    // Compute what the fresh bootstrap state would be (without modifying current state)
-    const tracks = this.getAvailableTracks();
-    const musicTracks = tracks.filter((t) => !t.isAd);
-
-    if (musicTracks.length === 0) {
-      return {
-        currentTrack: null,
-        position: 0,
-        queue: [],
-        isPlaying: false,
-        lastUpdated: now,
-        clientCount: this.state.clientCount,
-      };
-    }
-
-    const randomIndex = Math.floor(Math.random() * musicTracks.length);
-    const selectedTrack = musicTracks[randomIndex]!;
-    const maxStartPosition = Math.max(0, selectedTrack.duration - 30);
-    const randomPosition = Math.floor(Math.random() * (maxStartPosition + 1));
-
-    return {
-      currentTrack: selectedTrack,
-      position: randomPosition,
-      queue: [],
-      isPlaying: true,
-      lastUpdated: now,
-      clientCount: this.state.clientCount,
-    };
+    // Note: idleSnapshot is cleared in acquireBootstrapLock after applying state
+    return this.bootstrapFresh();
   }
 
   /**
    * Fresh bootstrap: pick a random track from the playlist and start at a random position.
    * Per SPEC.md: "pick a new random track, and start at a random position within it"
+   *
+   * @param playlist Optional explicit playlist (used by tests). Defaults to the
+   *   current playlist (real fetched or seed).
+   * @param useRandomStart When true (default), picks a random start position within
+   *   the track (30s window from end). When false, starts at position 0 — used
+   *   for non-bootstrap track transitions (e.g. queue exhausted during live playback).
    */
-  bootstrapFresh(playlist?: Track[]): PlaybackState {
+   bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
     const tracks = playlist ?? this.getAvailableTracks();
     const musicTracks = tracks.filter((t) => !t.isAd);
+    const now = Math.floor(Date.now() / 1000);
 
     if (musicTracks.length === 0) {
       return {
         currentTrack: null,
         position: 0,
-        queue: [],
+        queue: [...this.state.queue],
         isPlaying: false,
-        lastUpdated: Math.floor(Date.now() / 1000),
-        clientCount: 1,
+        lastUpdated: now,
+        clientCount: this.state.clientCount,
       };
     }
 
@@ -218,19 +208,32 @@ export class Conductor {
     const randomIndex = Math.floor(Math.random() * musicTracks.length);
     const selectedTrack = musicTracks[randomIndex]!;
 
-    // Start at a random position within the track
-    // Music tracks may start mid-way (per hard rule #7)
-    const maxStartPosition = Math.max(0, selectedTrack.duration - 30);
-    const randomPosition = Math.floor(Math.random() * (maxStartPosition + 1));
+    let position: number;
+    if (useRandomStart) {
+      // Start at a random position within the track (genuine bootstrap)
+      // Music tracks may start mid-way (per hard rule #7)
+      const maxStartPosition = Math.max(0, selectedTrack.duration - 30);
+      position = Math.floor(Math.random() * (maxStartPosition + 1));
+    } else {
+      // Non-bootstrap transition: start from beginning
+      position = 0;
+    }
 
-    const now = Math.floor(Date.now() / 1000);
+    // Preserve the existing queue (don't wipe it — Up Next should remain populated)
+    // Rebuild queue if it was exhausted during playback
+    let queue = [...this.state.queue];
+    if (queue.length === 0 && this.currentPlaylist) {
+      // Queue was exhausted — rebuild from the playlist with fresh ad injection
+      queue = this.injectAds(this.currentPlaylist, this.currentAds, this.currentAdsCount);
+    }
+
     const state: PlaybackState = {
       currentTrack: selectedTrack,
-      position: randomPosition,
-      queue: [],
+      position,
+      queue,
       isPlaying: true,
       lastUpdated: now,
-      clientCount: 1,
+      clientCount: this.state.clientCount,
     };
 
     this.applyState(state);
@@ -260,16 +263,15 @@ export class Conductor {
 
       // Check if current track has ended
       if (position >= currentTrack.duration) {
-        // Move to next track in queue
+        // Move to next track in queue (ads and music both start at 0)
         if (queue.length > 0) {
           const nextTrack = queue.shift()!;
           currentTrack = nextTrack;
-          // Ads always play from the start (per hard rule #7)
-          position = nextTrack.isAd ? 0 : 0;
-          // For music tracks, start at beginning (we already set position above)
+          position = 0; // All tracks start from beginning on queue advance
         } else {
-          // Queue is empty - pick new track
-          const newState = this.bootstrapFresh();
+          // Queue is empty - pick new track without random start position
+          // (non-bootstrap transition: start from beginning)
+          const newState = this.bootstrapFresh(undefined, false);
           currentTrack = newState.currentTrack;
           queue = newState.queue;
           position = newState.position;
@@ -297,6 +299,8 @@ export class Conductor {
    * Inject ads into the queue.
    * Per SPEC.md: divide queue into ADS_COUNT equal segments and randomly select
    * one ad position per segment. Ads always play from the start.
+   * The ad is inserted at a random position *within* each segment, not always
+   * appended at the end.
    */
   injectAds(tracks: Track[], ads: Track[], adsCount: number): Track[] {
     if (ads.length === 0 || tracks.length === 0) {
@@ -315,16 +319,25 @@ export class Conductor {
           ? tracks.length
           : (i + 1) * segmentSize;
 
-      // Add music tracks for this segment
-      for (let j = segmentStart; j < segmentEnd; j++) {
-        const track = tracks[j]!;
-        result.push(track);
+      const segmentTracks = tracks.slice(segmentStart, segmentEnd);
+
+      // Pick a random position within this segment to insert the ad (0 to segmentLength)
+      const insertPos = Math.floor(Math.random() * (segmentTracks.length + 1));
+
+      // Add music tracks before the ad position
+      for (let j = 0; j < insertPos; j++) {
+        result.push(segmentTracks[j]!);
       }
 
-      // Add a random ad at a random position within this segment
+      // Insert a random ad at the random position within this segment
       if (i < ads.length) {
         const ad = ads[Math.floor(Math.random() * ads.length)]!;
         result.push({ ...ad }); // Clone to avoid mutation
+      }
+
+      // Add remaining music tracks after the ad position
+      for (let j = insertPos; j < segmentTracks.length; j++) {
+        result.push(segmentTracks[j]!);
       }
     }
 
@@ -347,33 +360,51 @@ export class Conductor {
 
   /**
    * Find a track by its ID.
-   * Uses the seed playlist if no external playlist is available.
+   * Searches the real fetched playlist first, falling back to seed.
    */
   private findTrackById(id: string): Track | null {
-    // Try seed playlist first
+    // Try the real fetched playlist first
+    if (this.currentPlaylist) {
+      const track = this.currentPlaylist.find((t) => t.id === id);
+      if (track) return track;
+    }
+    // Fall back to seed playlist
     const tracks = SeedPlaylist.getTracks();
     return tracks.find((t) => t.id === id) ?? null;
   }
 
   /**
    * Get available tracks for bootstrap.
-   * In mock mode, uses seed playlist. In production, this would use the
-   * current Slack-fetched playlist stored in the conductor state.
+   * Uses the real fetched playlist when available (set via setPlaylist),
+   * falling back to the seed playlist only when no real playlist has been loaded yet.
    */
   private getAvailableTracks(): Track[] {
+    if (this.currentPlaylist) {
+      return this.currentPlaylist;
+    }
     return SeedPlaylist.getMusicTracks();
   }
 
   /**
    * Set the playlist (called when Slack fetch completes or mock playlist loads).
-   * Also injects ads into the queue.
+   * Stores the raw playlist tracks, ads, and adsCount for future queue rebuilding.
    */
   setPlaylist(tracks: Track[], ads: Track[], adsCount: number): void {
+    this.currentPlaylist = tracks;
+    this.currentAds = ads;
+    this.currentAdsCount = adsCount;
     const queue = this.injectAds(tracks, ads, adsCount);
     this.state.queue = queue;
 
     // If currently playing, update the queue
     // The current track and position remain unchanged
+  }
+
+  /**
+   * Get the current playlist (real fetched or seed).
+   */
+  getCurrentPlaylist(): Track[] {
+    return this.getAvailableTracks();
   }
 
   /**
@@ -395,6 +426,9 @@ export class Conductor {
       lastUpdated: 0,
       clientCount: 0,
     };
+    this.currentPlaylist = null;
+    this.currentAds = [];
+    this.currentAdsCount = 3;
     this.idleSnapshot = null;
     this.bootstrapLock = null;
     this.bootstrapResolve = null;

@@ -61,44 +61,53 @@ export class SlackService {
     return data.messages || [];
   }
 
-  /**
-   * Extract YouTube/YouTube Music links from Slack messages.
-   * Deduplicates by video ID, keeping the most recent post.
-   */
-  extractYouTubeLinks(messages: SlackMessage[]): Track[] {
-    const videoMap = new Map<string, Track>();
+   /**
+    * Extract YouTube/YouTube Music links from Slack messages.
+    * Deduplicates by video ID, keeping the most recent post.
+    * Resolves display names via getUserInfo(), falling back to real_name or
+    * the raw user ID.
+    */
+   async extractYouTubeLinks(messages: SlackMessage[]): Promise<Track[]> {
+     const videoMap = new Map<string, Track>();
+     const resolvedUsers = new Map<string, { displayName: string; realName?: string } | null>();
 
-    // Process messages in reverse order (newest first) so dedup keeps most recent
-    for (const msg of [...messages].reverse()) {
-      if (msg.subtype && msg.subtype !== "message") {
-        continue; // Skip non-message types
-      }
+     // Process messages in reverse order (newest first) so dedup keeps most recent
+     for (const msg of [...messages].reverse()) {
+       if (msg.subtype && msg.subtype !== "message") {
+         continue; // Skip non-message types
+       }
 
-      const youtubeUrls = this.extractYouTubeUrls(msg.text);
+       const youtubeUrls = this.extractYouTubeUrls(msg.text);
 
-      for (const { videoId, url } of youtubeUrls) {
-        if (!videoMap.has(videoId)) {
-          const track: Track = {
-            id: videoId,
-            title: url,
-            duration: 0, // Duration is fetched from YouTube API when needed
-            isAd: false,
-            postedBy: {
-              id: msg.user || "unknown",
-              displayName: msg.user || "unknown",
-              realName: msg.user || "unknown",
-            },
-          };
+       for (const { videoId, url } of youtubeUrls) {
+         if (!videoMap.has(videoId)) {
+           // Resolve the user's display name, caching the result
+           if (!resolvedUsers.has(msg.user)) {
+             resolvedUsers.set(msg.user, await this.getUserInfo(msg.user));
+           }
+           const userInfo = resolvedUsers.get(msg.user);
+           const displayName = userInfo?.displayName || msg.user || "unknown";
+           const realName = userInfo?.realName;
 
-          // Try to get user info for display name
-          // In production, would call users.info API
-          videoMap.set(videoId, track);
-        }
-      }
-    }
+           const track: Track = {
+             id: videoId,
+             title: url,
+             duration: 0, // Duration is fetched from YouTube API when needed
+             isAd: false,
+             postedBy: {
+               id: msg.user || "unknown",
+               displayName,
+               ...(realName ? { realName } : {}),
+             },
+           };
 
-    return Array.from(videoMap.values());
-  }
+           videoMap.set(videoId, track);
+         }
+       }
+     }
+
+     return Array.from(videoMap.values());
+   }
 
   /**
    * Extract YouTube video IDs and URLs from text.

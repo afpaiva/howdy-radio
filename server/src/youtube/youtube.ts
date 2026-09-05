@@ -26,6 +26,51 @@ export class YouTubeService {
   }
 
   /**
+   * Batch-fetch video durations from the YouTube Data API v3.
+   * Returns a map of videoId → duration in seconds.
+   * Returns an empty map if the API key is not configured (mock mode).
+   */
+  async fetchVideoDurations(videoIds: string[]): Promise<Map<string, number>> {
+    if (!this.config.apiKey || videoIds.length === 0) {
+      return new Map();
+    }
+
+    try {
+      // YouTube API allows up to 50 IDs per request
+      const batches: string[][] = [];
+      for (let i = 0; i < videoIds.length; i += 50) {
+        batches.push(videoIds.slice(i, i + 50));
+      }
+
+      const durationMap = new Map<string, number>();
+
+      for (const batch of batches) {
+        const response = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${batch.join(",")}&key=${this.config.apiKey}`
+        );
+
+        if (!response.ok) {
+          console.warn(`YouTube API error: ${response.status}`);
+          continue;
+        }
+
+        const data = (await response.json()) as YouTubeVideosResponse;
+        for (const item of data.items) {
+          const duration = this.parseDuration(item.contentDetails?.duration);
+          if (duration > 0) {
+            durationMap.set(item.id, duration);
+          }
+        }
+      }
+
+      return durationMap;
+    } catch (error) {
+      console.error("Failed to fetch video durations:", error);
+      return new Map();
+    }
+  }
+
+  /**
    * Fetch Shorts from YouTube Data API v3.
    * Filters by duration <= 60s (industry standard proxy for Shorts).
    * Returns the ADS_COUNT most recent Shorts.
