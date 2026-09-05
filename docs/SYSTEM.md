@@ -187,5 +187,12 @@ AI-DEV-LOG.md, e.g.:]
   and had already been documented as if intentional. Reverted to Vite
   as originally specified and corrected the docs that had rationalized
   the drift.
+- Reversed the planned merge order (server → client) to merge
+  fix/server-integration into fix/client-player instead, once the
+  client agent's testing was blocked without real server behavior to
+  test against. Demonstrates the directory-scope discipline holding
+  even under a merge inversion: the client agent found a server bug
+  mid-integration but declined to fix it out-of-scope, reporting it
+  back for the correct agent to handle.
 
 See `/docs/AI-DEV-LOG.md` for the full chronological account.
