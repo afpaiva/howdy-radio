@@ -9,6 +9,10 @@ export class Conductor {
   // Populated by setPlaylist(); used for bootstrap and track lookup.
   private currentPlaylist: Track[] | null = null;
 
+  // Ads fetched from YouTube Shorts, used for queue rebuilding.
+  private currentAds: Track[] = [];
+  private currentAdsCount: number = 3;
+
   // Idle/grace period tracking
   private idleSnapshot: StateSnapshot | null = null; // Stored when last client disconnects
 
@@ -184,7 +188,7 @@ export class Conductor {
    *   the track (30s window from end). When false, starts at position 0 — used
    *   for non-bootstrap track transitions (e.g. queue exhausted during live playback).
    */
-  bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
+   bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
     const tracks = playlist ?? this.getAvailableTracks();
     const musicTracks = tracks.filter((t) => !t.isAd);
     const now = Math.floor(Date.now() / 1000);
@@ -193,7 +197,7 @@ export class Conductor {
       return {
         currentTrack: null,
         position: 0,
-        queue: [],
+        queue: [...this.state.queue],
         isPlaying: false,
         lastUpdated: now,
         clientCount: this.state.clientCount,
@@ -215,10 +219,18 @@ export class Conductor {
       position = 0;
     }
 
+    // Preserve the existing queue (don't wipe it — Up Next should remain populated)
+    // Rebuild queue if it was exhausted during playback
+    let queue = [...this.state.queue];
+    if (queue.length === 0 && this.currentPlaylist) {
+      // Queue was exhausted — rebuild from the playlist with fresh ad injection
+      queue = this.injectAds(this.currentPlaylist, this.currentAds, this.currentAdsCount);
+    }
+
     const state: PlaybackState = {
       currentTrack: selectedTrack,
       position,
-      queue: [],
+      queue,
       isPlaying: true,
       lastUpdated: now,
       clientCount: this.state.clientCount,
@@ -375,10 +387,12 @@ export class Conductor {
 
   /**
    * Set the playlist (called when Slack fetch completes or mock playlist loads).
-   * Stores the raw playlist tracks and injects ads into the queue.
+   * Stores the raw playlist tracks, ads, and adsCount for future queue rebuilding.
    */
   setPlaylist(tracks: Track[], ads: Track[], adsCount: number): void {
     this.currentPlaylist = tracks;
+    this.currentAds = ads;
+    this.currentAdsCount = adsCount;
     const queue = this.injectAds(tracks, ads, adsCount);
     this.state.queue = queue;
 
@@ -413,6 +427,8 @@ export class Conductor {
       clientCount: 0,
     };
     this.currentPlaylist = null;
+    this.currentAds = [];
+    this.currentAdsCount = 3;
     this.idleSnapshot = null;
     this.bootstrapLock = null;
     this.bootstrapResolve = null;
