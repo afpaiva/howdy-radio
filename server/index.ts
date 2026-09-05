@@ -1,143 +1,121 @@
-import { Server, type Socket } from "socket.io";
+/**
+ * Howdy Radio Server
+ * Single Bun process that:
+ * 1. Serves static client build (/client/dist)
+ * 2. Exposes WebSocket conductor endpoint on the same port
+ * 3. Fetches/maintains playlist from Slack
+ * 4. Fetches/injects ads from YouTube Shorts
+ * 5. Owns authoritative playback timeline
+ */
+
+import { Server } from "socket.io";
 import { createServer } from "http";
+import { Conductor } from "./src/conductor/conductor";
+import { SlackService } from "./src/slack/slack";
+import { YouTubeService } from "./src/youtube/youtube";
+import { WsHandler } from "./src/ws/handler";
+import type { ServerConfig } from "./src/types";
 
-// Shared types between server and client (defined inline for simplicity)
-type Track = {
-  videoId: string;
-  title: string;
-  url: string;
-  postedBy: string;
-  duration: number;
-  isAd: boolean;
+// Load configuration from environment
+const config: ServerConfig = {
+  reconnectGracePeriodMinutes:
+    Number.parseInt(process.env.RECONNECT_GRACE_PERIOD_MINUTES || "5") || 5,
+  authProvider:
+    (process.env.AUTH_PROVIDER as "stub" | "slack" | "google") || "stub",
+  isMockMode: !process.env.SLACK_BOT_TOKEN,
+  port: Number.parseInt(process.env.PORT || "3001") || 3001,
+  botToken: process.env.SLACK_BOT_TOKEN,
+  slackChannelId: process.env.SLACK_CHANNEL_ID,
+  apiKey: process.env.YOUTUBE_API_KEY,
+  youtubeChannelId: process.env.HOWDY_YOUTUBE_CHANNEL_ID,
+  adsCount: Number.parseInt(process.env.ADS_COUNT || "3") || 3,
 };
 
-type PlaybackState = {
-  isPlaying: boolean;
-  currentTrack: Track | null;
-  position: number;
-  queue: Track[];
-};
-
-type ClientToServerEvents = {
-  join: () => void;
-};
-
-type ServerToClientEvents = {
-  state: (state: PlaybackState) => void;
-  tick: (payload: { position: number; isPlaying: boolean }) => void;
-  idle: () => void;
-};
-
-const httpServer = createServer();
-const io = new Server<ClientToServerEvents, ServerToClientEvents>(httpServer, {
-  cors: { origin: "*" },
-});
-
-// Minimal mock playlist matching the server seed in mock mode
-const MOCK_PLAYLIST: Track[] = [
-  {
-    videoId: "dQw4w9WgXcQ",
-    title: "Never Gonna Give You Up",
-    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    postedBy: "System",
-    duration: 30,
-    isAd: false,
-  },
-  {
-    videoId: "anotherVideoId",
-    title: "Ad Sample",
-    url: "https://www.youtube.com/watch?v=anotherVideoId",
-    postedBy: "System",
-    duration: 10,
-    isAd: true,
-  },
-];
-
-// State tracking
-let currentTrack: Track | null = null;
-let position = 0;
-let isPlaying = false;
-let queue = [...MOCK_PLAYLIST];
-let tickInterval: NodeJS.Timeout | undefined = undefined;
-let lastActivityTime = Date.now();
-let gracePeriodSeconds = Number(process.env.RECONNECT_GRACE_PERIOD_MINUTES) * 60 || 300;
-
-function getRandomTrackFromQueue(): Track | null {
-  if (!queue.length) return null;
-  const idx = Math.floor(Math.random() * queue.length);
-  const track = queue.splice(idx, 1)[0];
-  if (!track) return null;
-  return track;
-}
-
-function startTick() {
-  if (tickInterval) clearInterval(tickInterval);
-  tickInterval = setInterval(() => {
-    if (!isPlaying) return;
-    position++;
-    if (currentTrack && position >= currentTrack.duration) {
-      // Move to next track
-      const next = getRandomTrackFromQueue();
-      if (next) {
-        currentTrack = next;
-        position = next.isAd ? 0 : Math.floor(Math.random() * (next.duration - 1));
-        isPlaying = true;
-        io.emit("state", {
-          isPlaying,
-          currentTrack,
-          position,
-          queue,
-        });
-      } else {
-        isPlaying = false;
-      }
-    }
-    io.emit("tick", { position, isPlaying });
-  }, 1000);
-}
-
-function stopTick() {
-  if (tickInterval) clearInterval(tickInterval);
-  tickInterval = undefined;
-}
-
-io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents>) => {
-  console.log(`Client connected: ${socket.id}`);
-  lastActivityTime = Date.now();
-
-  // Send initial state snapshot
-  const initialState: PlaybackState = { isPlaying, currentTrack, position, queue };
-  socket.emit("state", initialState);
-
-  // Start tick if not already running
-  if (queue.length > 0 && !tickInterval) startTick();
-
-  socket.on("disconnect", () => {
-    console.log(`Client disconnected: ${socket.id}`);
-    lastActivityTime = Date.now();
-    stopTick();
-    // After some time, server should go idle (not implemented in skeleton)
-  });
-
-  socket.on("join", () => {
-    console.log(`Client ${socket.id} joined broadcast`);
-    // Acknowledge join - nothing else needed for skeleton
-  });
-});
-
-// Periodic cleanup - remove inactive clients (simulated)
-setInterval(() => {
-  const now = Date.now();
-  const minutesSinceLastActivity = (now - lastActivityTime) / 60000;
-  if (minutesSinceLastActivity >= gracePeriodSeconds / 60) {
-    console.log("Grace period expired, simulating idle state");
-    isPlaying = false;
-    stopTick();
+// Create HTTP server
+const httpServer = createServer((req, res) => {
+  // Serve static files
+  if (req.url === "/" || req.url === "/index.html") {
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end("<!DOCTYPE html><html><body>Loading...</body></html>");
+    return;
   }
-}, 30000);
+  res.writeHead(404);
+  res.end("Not found");
+});
 
-const port = 3001;
+// Create Socket.io server
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+  },
+});
 
-httpServer.listen(port, () => {
-  console.log(`Socket.io server running on port ${port}`);
+// Create services
+const conductor = new Conductor(config.reconnectGracePeriodMinutes);
+const slackService = new SlackService({
+  botToken: config.botToken,
+  channelId: config.slackChannelId,
+});
+const youtubeService = new YouTubeService({
+  apiKey: config.apiKey,
+  channelId: config.youtubeChannelId,
+  adsCount: config.adsCount,
+});
+
+// Create WebSocket handler
+const wsHandler = new WsHandler(io, conductor, slackService, youtubeService);
+
+// Health check endpoint
+const requestListeners = httpServer.listeners("request");
+const originalHandler = requestListeners[0];
+httpServer.removeAllListeners("request");
+httpServer.on("request", (req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        status: "ok",
+        clientCount: conductor.getClientCount(),
+        isMockMode: config.isMockMode,
+      })
+    );
+    return;
+  }
+  if (originalHandler) {
+    originalHandler(req, res);
+  }
+});
+
+/**
+ * Bootstrap: fetch initial playlist and ads, then store in conductor.
+ * Runs periodically to keep playlist fresh.
+ */
+async function refreshPlaylist(): Promise<void> {
+  try {
+    const [tracks, ads] = await Promise.all([
+      slackService.fetchPlaylist(),
+      youtubeService.fetchShorts(),
+    ]);
+
+    conductor.setPlaylist(tracks, ads, config.adsCount);
+    console.log(`Playlist refreshed: ${tracks.length} tracks, ${ads.length} ads`);
+  } catch (error) {
+    console.error("Failed to refresh playlist:", error);
+  }
+}
+
+// Initial playlist load
+refreshPlaylist().catch(console.error);
+
+// Refresh playlist periodically (every 5 minutes)
+setInterval(refreshPlaylist, 5 * 60 * 1000);
+
+// Start state broadcasting
+wsHandler.startTicking(1000);
+
+// Start the server
+httpServer.listen(config.port, () => {
+  console.log(`Howdy Radio server running on port ${config.port}`);
+  console.log(`Mock mode: ${config.isMockMode ? "enabled" : "disabled"}`);
+  console.log(`Auth provider: ${config.authProvider}`);
 });
