@@ -12,12 +12,16 @@ import type { Skin, SkinRegistry } from "./types";
 import { neutralSkin } from "./neutral";
 import { tamagotchiSkin } from "./tamagotchi";
 import { winampSkin } from "./winamp";
+import { atariSkin } from "./atari";
+import { walkmanSkin } from "./walkman";
 
 /** All skins the client knows about, keyed by `Skin.id`. */
 const registry: SkinRegistry = {
   [neutralSkin.id]: neutralSkin,
   [tamagotchiSkin.id]: tamagotchiSkin,
   [winampSkin.id]: winampSkin,
+  [atariSkin.id]: atariSkin,
+  [walkmanSkin.id]: walkmanSkin,
 };
 
 /**

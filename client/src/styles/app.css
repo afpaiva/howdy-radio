@@ -1,0 +1,410 @@
+/**
+ * /client/src/styles/app.css
+ *
+ * Styles for Howdy Radio's app-shell views — everything rendered by App.tsx
+ * *outside* of the per-skin components. This covers:
+ *
+ *   - The root app container and pre-launch layout
+ *   - Organic bento panels (connecting / tune-in gate / awaiting)
+ *   - Expressive editorial typography pairings
+ *   - Floating pill badges (interactive chips & buttons)
+ *   - The floating skin-selector pill bar
+ *
+ * Per the design language in docs/frontend_scope/DESIGN_DIRECTIONS.md, this
+ * is an "Editorial Nostalgia & Playful Warmth" aesthetic: warm off-white
+ * canvas, low-saturation pastels, organic bento framing, expressive bubble
+ * typography, and floating pill badges with soft shadows.
+ *
+ * Skin stylesheets (under src/skins/<name>/) are intentionally untouched —
+ * each skin owns its own scoped styling.
+ */
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Header — traditional horizontal bar fixed to top                          */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  height: 64px;
+  padding: 0 24px;
+  box-sizing: border-box;
+
+  background: rgba(250, 248, 245, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.howdy-header-logo {
+  flex-shrink: 0;
+  display: block;
+  line-height: 0;
+}
+
+.howdy-header-logo img {
+  height: 36px;
+  width: auto;
+  display: block;
+}
+
+.howdy-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.howdy-header-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--howdy-radius-pill);
+  padding: 8px 18px;
+  font-family: var(--howdy-font-bubble);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--howdy-text-strong);
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  box-shadow: var(--howdy-shadow-sm);
+  transition: all var(--howdy-transition);
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+
+.howdy-header-pill:hover {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: var(--howdy-shadow-md);
+  transform: translateY(-1px);
+}
+
+.howdy-header-pill:active {
+  transform: translateY(0);
+  box-shadow: var(--howdy-shadow-sm);
+}
+
+.howdy-header-pill:focus-visible {
+  outline: 2px solid var(--howdy-periwinkle-deep);
+  outline-offset: 2px;
+}
+
+.howdy-header-pill[data-active="true"] {
+  background: linear-gradient(135deg, var(--howdy-pill-periwinkle), #7A87C7);
+  color: #FFFFFF;
+  box-shadow: var(--howdy-shadow-pill);
+}
+
+.howdy-header-pill[data-active="true"]:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 20px rgba(154, 166, 220, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Primary "Tune in" button in header (before tuned in) */
+.howdy-header-pill--primary {
+  background: linear-gradient(135deg, var(--howdy-pill-amber), #CC8530);
+  color: #FFFFFF;
+  box-shadow: var(--howdy-shadow-pill);
+}
+
+.howdy-header-pill--primary:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 20px rgba(229, 163, 91, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.howdy-header-pill--primary:active {
+  transform: translateY(0);
+  box-shadow: var(--howdy-shadow-md);
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Root app container                                                       */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+/* Block-level root — lets live skin content fill the viewport width
+   freely while the pre-launch wrapper handles its own centering.         */
+
+.howdy-app {
+  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding-top: 56px;
+  box-sizing: border-box;
+}
+
+.howdy-main {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Hero logo (pre-launch stages)                                             */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-hero-logo {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  margin-bottom: 8px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Pre-launch layout (connecting / tune-in / awaiting)                      */
+/*   Centered bento card floating on the warm canvas.                       */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-pre-launch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  width: 100%;
+  max-width: var(--howdy-max-content);
+  margin: 0 auto;
+  padding: 56px 12px;
+  box-sizing: border-box;
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Organic bento framing                                                  */
+/*   Soft, generously rounded rectangular panels separated by generous     */
+/*   negative space — a friendly, modular mood board.                      */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-bento-panel {
+  width: 100%;
+  max-width: 480px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--howdy-radius-bento);
+  padding: 42px 36px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+
+  /* Organic framing shadow — soft and diffused */
+  box-shadow:
+    0 2px 6px  rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.07),
+    0 20px 48px rgba(0, 0, 0, 0.04);
+
+  /* Frosted-glass quality — lets the buttery canvas texture breathe */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  /* Subtle edge highlight for physical-card tactility */
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.howdy-bento-panel--wide {
+  max-width: 520px;
+  padding: 48px 40px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Expressive typography                                                   */
+/*   Headings: elegant serif, expressive italics                           */
+/*   Prompts:  warmer, slightly bolder serif for emphasis                  */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-panel-title {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 1.4rem;
+  line-height: 1.3;
+  color: var(--howdy-text-strong);
+  letter-spacing: -0.01em;
+}
+
+.howdy-prompt {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--howdy-text);
+}
+
+/* Subtle pastel accent on key words within prompts */
+.howdy-emphasis {
+  color: var(--howdy-periwinkle-deep);
+  font-weight: 600;
+}
+
+/* Status / body text — editorial serif italic */
+.howdy-body-text {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--howdy-text);
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Floating pill badges                                                    */
+/*   Capsule-shaped, saturated with richer mid-tone pastel pops,          */
+/*   elevated with soft diffused downward shadows for physical tactility. */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--howdy-radius-pill);
+  padding: 12px 28px;
+  font-family: var(--howdy-font-bubble);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #FFFFFF;
+  cursor: pointer;
+  box-shadow: var(--howdy-shadow-pill);
+  transition: all var(--howdy-transition);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.howdy-pill:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.14),
+    0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.howdy-pill:active {
+  transform: translateY(0);
+  box-shadow: var(--howdy-shadow-md);
+}
+
+.howdy-pill:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* ── Pill colour variants (richer mid-tone pastel pops) ─────────────── */
+
+.howdy-pill--periwinkle {
+  background: linear-gradient(135deg, var(--howdy-pill-periwinkle), #7A87C7);
+}
+
+.howdy-pill--coral {
+  background: linear-gradient(135deg, var(--howdy-pill-coral), #D48A9E);
+}
+
+.howdy-pill--amber {
+  background: linear-gradient(135deg, var(--howdy-pill-amber), #CC8530);
+}
+
+.howdy-pill--sage {
+  background: linear-gradient(135deg, var(--howdy-pill-sage), #6B9C6B);
+}
+
+/* ── Active state for skin-selector pills ──────────────────────────── */
+
+.howdy-pill[data-active="true"] {
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.16),
+    0 0 0 3px rgba(255, 255, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+.howdy-pill[data-active="true"]:hover {
+  transform: translateY(-3px);
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Decorative pastel elements                                               */
+/*   Soft accent lines / dots that reinforce the organic bento mood.       */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-accent-line {
+  width: 48px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--howdy-periwinkle),
+    var(--howdy-blush)
+  );
+  margin: 0 auto;
+  opacity: 0.5;
+}
+
+.howdy-pastel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--howdy-apricot);
+  box-shadow: 0 0 0 4px rgba(250, 248, 245, 0.4);
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Responsive adjustments                                                   */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  .howdy-app {
+    padding-top: 64px;
+  }
+
+  .howdy-header {
+    height: 64px;
+    padding: 0 16px;
+    gap: 12px;
+  }
+
+  .howdy-header-logo img {
+    height: 28px;
+  }
+
+  .howdy-header-pill {
+    padding: 6px 14px;
+    font-size: 0.7rem;
+  }
+
+  .howdy-pre-launch {
+    padding-top: 56px;
+  }
+
+  .howdy-bento-panel {
+    padding: 32px 24px;
+  }
+
+  .howdy-bento-panel--wide {
+    padding: 36px 24px;
+  }
+
+  .howdy-pill {
+    padding: 10px 22px;
+    font-size: 0.8rem;
+  }
+
+  .howdy-brand {
+    font-size: 1.75rem;
+  }
+}
