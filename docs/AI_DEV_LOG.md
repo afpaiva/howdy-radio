@@ -36,5 +36,10 @@
 * The server agent finished its work around 15:55 due to rate limits.
 * Introduced a `skin-tester` agent to create tests before merging the branches from the 5 agents.
 * Merged the `skin-tester` tests into the other agents and let them fix issues until all tests passed.
-* Finally, opened the 5 PRs targeting main. Got 2 merge simple conflicts on server implementation and 2 other small conflicts in the file that loads the skins.
-* Merged all branches and iterated with a few fixes to remove console warnings and a small bug breaking the Winamp style page.
+* Finally, opened the 5 PRs targeting main. Got 2 merge simple conflicts on server implementation.
+* Using Gemini and a Howdy website section screenshot, it was generated a detailed DESIGN_DIRECTIONS.md to guide another agent that will work on the rest of the app styles. Added logo and adjusted a few styles prompting and manually.
+* Prompted to update the Neutral skin to incorporate a clean, structured design using the global design system.
+
+## Day 4
+* Worked on the external resources: - Slack channel, bot token, YouTube keys, etc.
+* Wrote server apis integrations prompts and more skins improvements to run in parallel in the next iteration.
