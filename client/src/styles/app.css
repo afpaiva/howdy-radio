@@ -125,8 +125,9 @@
 .howdy-header-pill--primary:hover {
   transform: translateY(-2px);
   box-shadow:
-    0 6px 20px rgba(229, 163, 91, 0.4),
+    0 6px 20px rgba(0, 0, 0, 0.14),
     0 2px 4px rgba(0, 0, 0, 0.06);
+  background: linear-gradient(135deg, var(--howdy-pill-amber), #CC8530);
 }
 
 .howdy-header-pill--primary:active {
