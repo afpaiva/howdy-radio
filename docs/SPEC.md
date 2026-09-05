@@ -36,7 +36,6 @@ interface AuthProvider {
 - **Deduplication:** deduplicate based on video ID while keeping the most recent post — this prevents excessive repetition of the same song and keeps the playlist predictable.
 - Build and maintain a canonical playlist server-side (not on the frontend).
 - Playlist updates automatically as new links are posted.
-- Playlist is NOT shown in the frontend UI.
 
 ### Playback State (Single Source of Truth)
 - Server maintains authoritative state:
@@ -64,8 +63,23 @@ interface AuthProvider {
 - All skins render the same underlying playback state (current track, position, connection status) — only presentation differs.
 - **v1 skins:** Winamp, Atari (Space Invaders style), Walkman, Tamagotchi.
 - Additional skins can be added later by implementing the shared `Skin` interface (see Architecture).
-- The playlist itself is never shown in the UI (consistent with Non-Goals).
 - **Skin persistence:** the selected skin is remembered per-user via `localStorage`. This is explicitly permitted — the "no localStorage for sync state" restriction applies only to playback synchronization state (to ensure the server remains the single source of truth). Skin selection is purely a UI preference and does not affect client synchronization.
+
+### Up Next Display
+
+Originally scoped as hidden (v1 spec), showing a short "Up Next" queue
+preview proved to be a valuable product feature during implementation
+and was intentionally kept across all 5 skins.
+
+- Each skin displays the upcoming queue, including ads (labeled
+  distinctly, e.g. "[ad]"), as an "Up Next" list.
+- This does not compromise the server as sole source of truth — the
+  client only renders queue data received via WebSocket `state`, never
+  computes, reorders, or caches it independently.
+- The existing skin contract test (`skin-contract.test.tsx`) already
+  enforces this correctly; no test changes were needed as a result of
+  this decision — the tests had, in effect, anticipated the right
+  product call before the spec caught up.
 
 ### Ads (replaces original static jingle concept)
 - Ads are the `ADS_COUNT` (default: 3, configurable) most recent YouTube Shorts published on the Howdy YouTube channel (`HOWDY_YOUTUBE_CHANNEL_ID`).
@@ -162,7 +176,7 @@ Skins are loaded dynamically; switching skins does not reset playback state.
 | Mock mode required | Must run locally without `SLACK_BOT_TOKEN`. |
 | No client-side sync storage | Server is the only source of truth; no localStorage/sessionStorage for playback state. |
 | Single domain | Auth restricted to @howdy.com email domain (stub provider in v1; not cryptographically verified — see Authentication). |
-| No playlist UI | Playlist never shown to listeners; radio-like experience only. |
+| Up Next display | Queue is intentionally shown to listeners as a short "Up Next" preview (see §Up Next Display) — this was a deliberate product decision made during implementation, not an oversight. |
 
 ---
 

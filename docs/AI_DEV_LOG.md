@@ -43,3 +43,4 @@
 ## Day 4
 * Worked on the external resources: - Slack channel, bot token, YouTube keys, etc.
 * Wrote server apis integrations prompts and more skins improvements to run in parallel in the next iteration.
+* Reviewed the "queue shown in UI" divergence flagged by alignment-reviewer. Decided to keep it and update SPEC.md instead of reverting — the feature added real UX value across all 5 skins, and the existing contract tests already validated it correctly.
