@@ -8,7 +8,7 @@ describe("SlackService - YouTube URL Extraction", () => {
     channelId: "test-channel",
   });
 
-  test("extracts YouTube watch URLs", () => {
+  test("extracts YouTube watch URLs", async () => {
     const messages: SlackMessage[] = [
       {
         type: "message",
@@ -18,13 +18,13 @@ describe("SlackService - YouTube URL Extraction", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(1);
     expect(tracks[0]!.id).toBe("dQw4w9WgXcQ");
     expect(tracks[0]!.isAd).toBe(false);
   });
 
-  test("extracts YouTube Music URLs", () => {
+  test("extracts YouTube Music URLs", async () => {
     const messages: SlackMessage[] = [
       {
         type: "message",
@@ -34,12 +34,12 @@ describe("SlackService - YouTube URL Extraction", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(1);
     expect(tracks[0]!.id).toBe("9bZkp7q19f0");
   });
 
-  test("extracts YouTube Shorts URLs", () => {
+  test("extracts YouTube Shorts URLs", async () => {
     const messages: SlackMessage[] = [
       {
         type: "message",
@@ -49,12 +49,12 @@ describe("SlackService - YouTube URL Extraction", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(1);
     expect(tracks[0]!.id).toBe("hTbnEfVlHd5");
   });
 
-  test("extracts YouTube embed URLs", () => {
+  test("extracts YouTube embed URLs", async () => {
     const messages: SlackMessage[] = [
       {
         type: "message",
@@ -64,12 +64,12 @@ describe("SlackService - YouTube URL Extraction", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(1);
     expect(tracks[0]!.id).toBe("kJQP7q19f0A");
   });
 
-  test("handles youtu.be short URLs", () => {
+  test("handles youtu.be short URLs", async () => {
     const messages: SlackMessage[] = [
       {
         type: "message",
@@ -79,12 +79,12 @@ describe("SlackService - YouTube URL Extraction", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(1);
     expect(tracks[0]!.id).toBe("OPf05leTWnY");
   });
 
-  test("extracts multiple links from single message", () => {
+  test("extracts multiple links from single message", async () => {
     const messages: SlackMessage[] = [
       {
         type: "message",
@@ -94,13 +94,13 @@ describe("SlackService - YouTube URL Extraction", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(2);
     expect(tracks[0]!.id).toBe("videoOneABC");
     expect(tracks[1]!.id).toBe("videoTwoABC");
   });
 
-  test("ignores non-YouTube URLs", () => {
+  test("ignores non-YouTube URLs", async () => {
     const messages: SlackMessage[] = [
       {
         type: "message",
@@ -110,11 +110,11 @@ describe("SlackService - YouTube URL Extraction", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(0);
   });
 
-  test("handles empty text", () => {
+  test("handles empty text", async () => {
     const messages: SlackMessage[] = [
       {
         type: "message",
@@ -124,7 +124,7 @@ describe("SlackService - YouTube URL Extraction", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(0);
   });
 });
@@ -135,7 +135,7 @@ describe("SlackService - Deduplication", () => {
     channelId: "test-channel",
   });
 
-  test("deduplicates by video ID, keeping most recent", () => {
+  test("deduplicates by video ID, keeping most recent", async () => {
     // Two messages with the same video ID
     const messages: SlackMessage[] = [
       {
@@ -152,13 +152,13 @@ describe("SlackService - Deduplication", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(1);
     // The user from the newest message should be kept
     expect(tracks[0]!.postedBy?.id).toBe("U2");
   });
 
-  test("keeps all unique video IDs", () => {
+  test("keeps all unique video IDs", async () => {
     const messages: SlackMessage[] = [
       {
         type: "message",
@@ -174,7 +174,7 @@ describe("SlackService - Deduplication", () => {
       },
     ];
 
-    const tracks = slackService.extractYouTubeLinks(messages);
+    const tracks = await slackService.extractYouTubeLinks(messages);
     expect(tracks.length).toBe(2);
   });
 });

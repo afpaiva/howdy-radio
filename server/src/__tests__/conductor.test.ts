@@ -253,6 +253,31 @@ describe("Conductor - Ad Injection", () => {
     expect(adTrack).toBeDefined();
     expect(adTrack!.id).toBe(mockAd.id);
   });
+
+  test("ads are inserted at random positions within segments, not always at end", () => {
+    const tracks = [
+      mockTrack1,
+      mockTrack2,
+      { ...mockTrack1, id: "v3" },
+      { ...mockTrack2, id: "v4" },
+      { ...mockTrack1, id: "v5" },
+    ];
+    const ads = [{ ...mockAd, id: "ad1" }];
+
+    // Run injectAds many times and collect the position of the ad within
+    // the first segment (segmentSize = 5/1 = 5, so the ad could be at
+    // positions 0 through 5 in the result array).
+    const positions = new Set<number>();
+    for (let i = 0; i < 100; i++) {
+      const result = conductor.injectAds(tracks, ads, 1);
+      const adIdx = result.findIndex((t) => t.isAd);
+      expect(adIdx).toBeGreaterThanOrEqual(0);
+      positions.add(adIdx);
+    }
+
+    // The ad position should vary across runs (not always at the same spot)
+    expect(positions.size).toBeGreaterThan(1);
+  });
 });
 
 describe("Conductor - State Management", () => {
