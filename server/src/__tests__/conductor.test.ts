@@ -44,7 +44,9 @@ describe("Conductor - Bootstrap", () => {
     }
   });
 
-  test("bootstrap with explicit tracks uses provided playlist", () => {
+  test("bootstrap with explicit tracks uses provided playlist", async () => {
+    // Connect a client so clientCount > 0 (allows live state computation)
+    await conductor.onClientConnect();
     const tracks = [mockTrack1, mockTrack2];
     const state = conductor.bootstrapFresh(tracks);
 
@@ -59,6 +61,26 @@ describe("Conductor - Bootstrap", () => {
     expect(state.isPlaying).toBe(false);
     expect(state.currentTrack).toBeNull();
     expect(state.position).toBe(0);
+  });
+
+  test("bootstrap uses random start position by default", async () => {
+    await conductor.onClientConnect();
+    const state = conductor.bootstrapFresh([mockTrack1]);
+
+    // Position should be within the track (could be random, including 0)
+    expect(state.position).toBeGreaterThanOrEqual(0);
+    expect(state.position).toBeLessThan(mockTrack1.duration);
+  });
+
+  test("bootstrap with useRandomStart=false always starts at position 0", async () => {
+    await conductor.onClientConnect();
+    
+    // Run multiple times to verify it's always 0
+    for (let i = 0; i < 50; i++) {
+      const state = conductor.bootstrapFresh([mockTrack1], false);
+      expect(state.position).toBe(0);
+      expect(state.currentTrack?.id).toBe(mockTrack1.id);
+    }
   });
 });
 
@@ -146,6 +168,9 @@ describe("Conductor - Live State Computation", () => {
   });
 
   test("live state advances position over time", async () => {
+    // Set up with a client connected so live state computation runs
+    await conductor.onClientConnect();
+
     // Bootstrap with a known track
     const initialState = conductor.bootstrapFresh([mockTrack1]);
     expect(initialState.isPlaying).toBe(true);
@@ -178,6 +203,70 @@ describe("Conductor - Live State Computation", () => {
     expect(state2.currentTrack?.id).toBe(state1.currentTrack?.id);
     expect(state2.position).toBeGreaterThan(position1);
     expect(conductor.getClientCount()).toBe(2);
+  });
+
+  test("track advances from queue without random start position", async () => {
+    // Use a track with a very short duration to trigger transition quickly
+    const shortTrack: Track = {
+      id: "short1",
+      title: "Short Track",
+      duration: 1,
+      isAd: false,
+    };
+    const nextTrack: Track = {
+      id: "next1",
+      title: "Next Track",
+      duration: 300,
+      isAd: false,
+    };
+
+    await conductor.onClientConnect();
+    // Set playlist to [nextTrack] only (shortTrack is not in the playlist,
+    // so when the queue is exhausted, bootstrapFresh picks from available tracks)
+    conductor.setPlaylist([nextTrack], [], 3);
+
+    // Bootstrap with shortTrack (not in the playlist, so queue is empty after it ends)
+    conductor.bootstrapFresh([shortTrack]);
+
+    // Wait for the short track to end (1 second) plus a buffer
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+
+    const state = conductor.getCurrentState();
+    // Queue was empty, so bootstrapFresh(false) picks nextTrack from available playlist
+    expect(state.currentTrack?.id).toBe(nextTrack.id);
+    // Next track should start at position 0 (no random start)
+    expect(state.position).toBe(0);
+  });
+
+  test("queue exhausted during live playback starts next track at position 0", async () => {
+    // Use tracks with duration 1 so they end quickly
+    const track1: Track = {
+      id: "quick1",
+      title: "Quick Track 1",
+      duration: 1,
+      isAd: false,
+    };
+    const track2: Track = {
+      id: "quick2",
+      title: "Quick Track 2",
+      duration: 300,
+      isAd: false,
+    };
+
+    await conductor.onClientConnect();
+    // Set playlist to both tracks
+    conductor.setPlaylist([track1, track2], [], 3);
+    // Bootstrap with track1 (which has duration 1)
+    conductor.bootstrapFresh([track1]);
+
+    // Wait for track1 to end and queue to be exhausted
+    // (track1 is in the queue from setPlaylist, so it advances to track1 again)
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+
+    const state = conductor.getCurrentState();
+    expect(state.isPlaying).toBe(true);
+    // Position should be very small (just started at 0 with no random offset)
+    expect(state.position).toBeLessThan(5);
   });
 });
 
@@ -252,6 +341,31 @@ describe("Conductor - Ad Injection", () => {
     const adTrack = result.find((t) => t.isAd);
     expect(adTrack).toBeDefined();
     expect(adTrack!.id).toBe(mockAd.id);
+  });
+
+  test("ads are inserted at random positions within segments, not always at end", () => {
+    const tracks = [
+      mockTrack1,
+      mockTrack2,
+      { ...mockTrack1, id: "v3" },
+      { ...mockTrack2, id: "v4" },
+      { ...mockTrack1, id: "v5" },
+    ];
+    const ads = [{ ...mockAd, id: "ad1" }];
+
+    // Run injectAds many times and collect the position of the ad within
+    // the first segment (segmentSize = 5/1 = 5, so the ad could be at
+    // positions 0 through 5 in the result array).
+    const positions = new Set<number>();
+    for (let i = 0; i < 100; i++) {
+      const result = conductor.injectAds(tracks, ads, 1);
+      const adIdx = result.findIndex((t) => t.isAd);
+      expect(adIdx).toBeGreaterThanOrEqual(0);
+      positions.add(adIdx);
+    }
+
+    // The ad position should vary across runs (not always at the same spot)
+    expect(positions.size).toBeGreaterThan(1);
   });
 });
 
