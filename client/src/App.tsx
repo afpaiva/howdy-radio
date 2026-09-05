@@ -92,9 +92,9 @@ function SkinSelector({
   if (skins.length <= 1) return null;
   return (
     <nav data-testid="skin-selector">
-      {skins.map((s) => (
+      {skins.map((s, i) => (
         <button
-          key={s.id}
+          key={i}
           type="button"
           onClick={() => onChange(s.id)}
           data-active={s.id === activeId ? "true" : "false"}

@@ -30,7 +30,10 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
     videoId: 'abc123',
     title: 'Test Track Title',
     url: 'https://www.youtube.com/watch?v=abc123',
-    postedBy: 'alice',
+    postedBy: {
+      id: 'user123',
+      displayName: 'alice',
+    },
     duration: 65,
     isAd: false,
     ...overrides,
@@ -132,7 +135,7 @@ describe('Skin contract: walkman "Walkman"', () => {
     expect(screen.getByTestId('track-title')).toHaveTextContent(track.title);
 
     // posted-by includes the poster's display name
-    expect(screen.getByTestId('posted-by')).toHaveTextContent(track.postedBy);
+    expect(screen.getByTestId('posted-by')).toHaveTextContent(track.postedBy.displayName);
 
     // play-state reflects isPlaying
     expect(screen.getByTestId('play-state')).toHaveTextContent('Playing');

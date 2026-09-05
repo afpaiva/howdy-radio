@@ -323,7 +323,7 @@ function NowPlaying({ state }: { state: PlaybackState }): ReactElement {
       {/* Source link & posted-by — required by SPEC.md */}
       <div className="winamp-meta-row">
         <span data-testid="posted-by" className="winamp-meta-on">
-          posted by {safeTrack.postedBy}
+          posted by {safeTrack.postedBy.displayName}
         </span>
         <a
           data-testid="track-link"
@@ -391,7 +391,7 @@ function Equalizer({ state }: { state: PlaybackState }): ReactElement {
           const max = (labels.length - 1) / 2;
           // V-shape: middle faders higher than edges.
           const position = 0.4 + ((max - v) / max) * 0.5;
-          return <Fader key={label} label={label} position={position} />;
+          return <Fader key={i} label={label} position={position} />;
         })}
       </div>
     </div>
@@ -407,7 +407,7 @@ function QueueList({ queue }: { queue: Track[] }): ReactElement | null {
     <div className="winamp-module winamp-queue">
       <TitleBar text="Up Next" />
       <ul data-testid="queue" className="winamp-queue-list">
-        {queue.map((track) => (
+        {queue.map((track, i) => (
           <li
             key={track.videoId}
             data-testid="queue-item"
@@ -435,7 +435,7 @@ export const winampSkin: Skin = {
   render(state: PlaybackState): ReactElement {
     const { connectionStatus, currentTrack, queue } = state;
     return (
-      <div className="winamp-skin" data-skin="winamp">
+      <div className="winamp-skin" data-skin="winamp" key="winamp">
         <ConnectionStatusPanel status={connectionStatus} />
 
         {currentTrack ? (

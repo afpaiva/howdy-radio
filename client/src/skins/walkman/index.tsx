@@ -198,7 +198,7 @@ function NowPlaying({ track }: { track: Track }): ReactElement {
         {track.title}
       </h1>
       <p className="walkman-track-meta" data-testid="track-meta">
-        <span data-testid="posted-by">Posted by {track.postedBy}</span>
+        <span data-testid="posted-by">Posted by {track.postedBy.displayName}</span>
       </p>
     </div>
   );
@@ -313,7 +313,7 @@ export const walkmanSkin: Skin = {
     );
 
     return (
-      <div className="walkman-skin" data-skin="walkman">
+      <div className="walkman-skin" data-skin="walkman" key="walkman">
         <div className="walkman-chassis">
           <TopPlate />
           <Faceplate arrow={<ArrowGlyph />}>{trackBody}</Faceplate>

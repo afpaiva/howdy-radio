@@ -94,7 +94,7 @@ function CurrentTrack({
       <SpriteArt />
       <h1 data-testid="track-title">{safeTrack.title}</h1>
       <p data-testid="track-meta">
-        <span data-testid="posted-by">Posted by {safeTrack.postedBy}</span>
+        <span data-testid="posted-by">Posted by {safeTrack.postedBy.displayName}</span>
         <span data-testid="play-state" data-playing={isPlaying ? "true" : "false"}>
           {isPlaying ? "▶ Playing" : "❚❚ Paused"}
         </span>
@@ -119,7 +119,7 @@ export const atariSkin: Skin = {
   render(state: PlaybackState): ReactElement {
     const { connectionStatus, queue } = state;
     return (
-      <div data-skin="atari">
+      <div data-skin="atari" key="atari">
         <header
           data-testid="connection-status"
           data-status={connectionStatus}
@@ -140,7 +140,7 @@ export const atariSkin: Skin = {
           <section aria-label="Up next">
             <h2>Up Next ({queue.length})</h2>
             <ul data-testid="queue">
-              {queue.map((track) => (
+              {queue.map((track, i) => (
                 <QueueRow key={track.videoId} track={track} />
               ))}
             </ul>

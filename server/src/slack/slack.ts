@@ -86,6 +86,7 @@ export class SlackService {
             postedBy: {
               id: msg.user || "unknown",
               displayName: msg.user || "unknown",
+              realName: msg.user || "unknown",
             },
           };
 

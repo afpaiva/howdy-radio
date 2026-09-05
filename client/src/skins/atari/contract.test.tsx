@@ -32,7 +32,10 @@ function makeTrack(overrides: Partial<Track> = {}): Track {
     videoId: "abc123",
     title: "Test Track Title",
     url: "https://www.youtube.com/watch?v=abc123",
-    postedBy: "alice",
+    postedBy: {
+      id: "user123",
+      displayName: "alice",
+    },
     duration: 65,
     isAd: false,
     ...overrides,
@@ -122,7 +125,7 @@ describe('Atari skin contract', () => {
 
     expect(screen.getByTestId('current-track')).toBeInTheDocument();
     expect(screen.getByTestId('track-title')).toHaveTextContent(track.title);
-    expect(screen.getByTestId('posted-by')).toHaveTextContent(track.postedBy);
+    expect(screen.getByTestId('posted-by')).toHaveTextContent(track.postedBy.displayName);
     expect(screen.getByTestId('play-state')).toHaveTextContent('Playing');
     expect(screen.getByTestId('position')).toHaveTextContent('1:05 / 1:05');
 

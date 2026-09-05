@@ -415,8 +415,8 @@ function StatusBar({
         data-blink={signalBlink ? "true" : "false"}
         aria-label={`signal ${connectionStatus}`}
       />
-      {icons.map((name) => (
-        <StatusIcon key={name} name={name} />
+      {icons.map((name, i) => (
+        <StatusIcon key={i} name={name} />
       ))}
       {side === "bottom" && (
         <span
@@ -445,9 +445,9 @@ function CurrentTrackBlock({
   const shortTitle = safeTrack.title.length > 22
     ? `${safeTrack.title.slice(0, 21)}…`
     : safeTrack.title;
-  const shortBy = safeTrack.postedBy.length > 12
-    ? `${safeTrack.postedBy.slice(0, 11)}…`
-    : safeTrack.postedBy;
+  const shortBy = safeTrack.postedBy.displayName.length > 12
+    ? `${safeTrack.postedBy.displayName.slice(0, 11)}…`
+    : safeTrack.postedBy.displayName;
 
   return (
     <div className="tamagotchi-lcd-content" data-testid="current-track">
@@ -568,7 +568,7 @@ export const tamagotchiSkin: Skin = {
     };
 
     return (
-      <div data-skin="tamagotchi" style={wrapperStyle}>
+      <div data-skin="tamagotchi" style={wrapperStyle} key="tamagotchi">
         {/* Connection status — surfaced as required by the shared skin
             contract. Rendered as a small pill above the toy so the
             observable testid exists without disturbing the LCD. */}
@@ -625,7 +625,7 @@ export const tamagotchiSkin: Skin = {
               inbox ({queue.length})
             </h3>
             <ul data-testid="queue" className="tamagotchi-queue-list">
-              {queue.map((track) => (
+              {queue.map((track, i) => (
                 <li
                   key={track.videoId}
                   data-testid="queue-item"

@@ -47,10 +47,10 @@ function CurrentTrack({
   const progress = `${formatTime(position)} / ${formatTime(safeTrack.duration)}`;
 
   return (
-    <section data-testid="current-track" aria-label="Now playing">
+    <section data-testid="current-track" aria-label="Now playing" key="neutral">
       <h1 data-testid="track-title">{safeTrack.title}</h1>
       <p data-testid="track-meta">
-        <span data-testid="posted-by">posted by {safeTrack.postedBy}</span>
+        <span data-testid="posted-by">posted by {safeTrack.postedBy.displayName}</span>
         {" · "}
         <span data-testid="play-state">
           {isPlaying ? "Playing" : "Paused"}
@@ -91,7 +91,7 @@ export const neutralSkin: Skin = {
           <section aria-label="Up next">
             <h2>Up next ({queue.length})</h2>
             <ul data-testid="queue">
-              {queue.map((track) => (
+              {queue.map((track, i) => (
                 <QueueRow key={track.videoId} track={track} />
               ))}
             </ul>
