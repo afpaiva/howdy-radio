@@ -229,6 +229,27 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════════ */
+/* YouTube IFrame (audio-first, hidden)                                      */
+/*   The IFrame player mounts into this visually-hidden container per        */
+/*   client/AGENTS.md hard rule #5 (audio-first; UI shows track metadata,    */
+/*   not raw video). It stays out of the accessible tree and out of         */
+/*   layout so it never affects the skin UI.                                  */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-youtube-player {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  pointer-events: none;
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
 /* Root app container                                                       */
 /* ═══════════════════════════════════════════════════════════════════════ */
 

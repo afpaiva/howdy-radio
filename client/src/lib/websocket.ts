@@ -34,7 +34,7 @@ import type {
  */
 const WS_URL: string | undefined = (import.meta as any).env.PROD
   ? undefined
-  : ((import.meta as any).env.VITE_WS_URL ?? "http://localhost:3001");
+  : ((import.meta as any).env.VITE_WS_URL ?? "http://localhost:3000");
 
 /** The merged playback state the UI consumes, or `null` while connecting. */
 export interface PlaybackHookResult {

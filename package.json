@@ -1,0 +1,12 @@
+{
+  "name": "howdy-radio",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Howdy Radio — a synchronized in-browser radio station (Vite + React frontend over a Bun/Socket.io conductor).",
+  "scripts": {
+    "verify": "bun run --cwd client test && bun run --cwd client typecheck && bun run --cwd server test && bun run --cwd server typecheck && bun run --cwd server lint",
+    "dev": "bun run --cwd client dev",
+    "build": "bun run --cwd client build",
+    "test": "bun run --cwd client test && bun run --cwd server test"
+  }
+}

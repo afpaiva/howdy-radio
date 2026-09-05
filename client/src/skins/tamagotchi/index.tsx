@@ -637,7 +637,7 @@ export const tamagotchiSkin: Skin = {
               inbox ({queue.length})
             </h3>
             <ul data-testid="queue" className="tamagotchi-queue-list">
-              {queue.map((track, i) => (
+              {queue.map((track, _i) => (
                 <li
                   key={track.videoId}
                   data-testid="queue-item"
