@@ -41,6 +41,7 @@
 * Prompted to update the Neutral skin to incorporate a clean, structured design using the global design system.
 
 ## Day 4
+
 * Worked on the external resources: - Slack channel, bot token, YouTube keys, etc.
 * Wrote server apis integrations prompts and more skins improvements to run in parallel in the next iteration.
 * Reviewed the "queue shown in UI" divergence flagged by alignment-reviewer. Decided to keep it and update SPEC.md instead of reverting — the feature added real UX value across all 5 skins, and the existing contract tests already validated it correctly.
@@ -52,3 +53,10 @@
 * The login gate gap (backend fully implemented, no client UI) wasn't caught by either alignment-review pass, since it audits code correctness against spec, not missing UI surface area for an existing backend feature — worth noting as a blind spot of that review method.
 * GLM 5.2 hit another rate limit; switched to Laguna S 2.1 for this session, per the established fallback pattern.
 * Discovered an agent session printed the full contents of `.env` to the terminal during a debugging command, which likely exposed secret values (Slack bot token, YouTube API key) to the model provider via the conversation context. Treated as a real security incident rather than a cosmetic issue: revoked and rotated all affected credentials (Slack bot token, YouTube API key) immediately, rather than assuming low risk. Updated AGENTS.md adding a hard rule to never print/console the .env file content.
+
+## Day 5
+
+* Ran client and server investigations in parallel for the "restarts from beginning" bug. Client (skeleton-implementer) grepped the entire codebase for state-change handlers, found none, and correctly concluded the client only reacts passively to server state — reported back a clean negative result instead of guessing at a fix.
+* Server investigation found the actual root cause differed from the initial hypothesis: ad "plays 1s then loops" was NOT a duration-zero bug (durations were already correctly assigned) — the real cause was computeLiveState() computing track transitions but never persisting them via applyState(), causing every tick to recompute from stale state. Separately, bootstrapFresh() included the current track inside its own generated queue, causing an occasional replay of the same track via queue.shift(). Both fixed independently.
+* Bonus scope addition accepted: real YouTube video titles now resolved for Slack-sourced tracks (previously showed raw URLs), bundled into the same session alongside the max-track-duration cap (12 min) requested earlier.
+

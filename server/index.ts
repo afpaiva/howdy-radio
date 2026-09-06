@@ -77,6 +77,8 @@ const config: ServerConfig = {
   apiKey: process.env.YOUTUBE_API_KEY,
   youtubeChannelId: process.env.HOWDY_YOUTUBE_CHANNEL_ID,
   adsCount: Number.parseInt(process.env.ADS_COUNT || "3") || 3,
+  maxTrackDurationSeconds:
+    Number.parseInt(process.env.MAX_TRACK_DURATION_SECONDS || "720") || 720,
 };
 
 // Create services
@@ -307,23 +309,39 @@ async function refreshPlaylist(): Promise<void> {
       youtubeService.fetchShorts(),
     ]);
 
-    // Fetch real video durations for Slack-sourced tracks.
-    // In mock mode, tracks already have correct durations from seed data (duration > 0).
-    // In production mode, tracks have duration: 0 and need real durations fetched.
-    const tracksNeedingDurations = tracks.filter((t) => t.duration === 0);
-    if (tracksNeedingDurations.length > 0) {
-      const videoIds = tracksNeedingDurations.map((t) => t.id);
-      const durationMap = await youtubeService.fetchVideoDurations(videoIds);
-      const updatedTracks = tracks.map((t) => ({
-        ...t,
-        // Use real duration if available; fall back to 180s default for music videos
-        duration: durationMap.get(t.id) ?? (t.duration > 0 ? t.duration : 180),
-      }));
-      conductor.setPlaylist(updatedTracks, ads, config.adsCount);
-      console.log(`Playlist refreshed: ${updatedTracks.length} tracks, ${ads.length} ads (durations fetched)`);
+   // Fetch real video metadata (duration + title) for Slack-sourced tracks.
+    // In mock mode, tracks already have correct durations and titles from seed data.
+    // In production mode, tracks have duration: 0 and title set to the raw URL.
+    const tracksNeedingMetadata = tracks.filter((t) => t.duration === 0);
+    let updatedTracks = tracks;
+    if (tracksNeedingMetadata.length > 0) {
+      const videoIds = tracksNeedingMetadata.map((t) => t.id);
+      const metadataMap = await youtubeService.fetchVideoMetadata(videoIds);
+      updatedTracks = tracks.map((t) => {
+        const metadata = metadataMap.get(t.id);
+        return {
+          ...t,
+          // Use real duration if available; fall back to 180s default for music videos
+          duration: metadata?.duration ?? (t.duration > 0 ? t.duration : 180),
+          // Replace raw URL title with actual YouTube video title when available
+          title: metadata?.title || t.title,
+        };
+      });
+    }
+
+    // Filter out tracks exceeding MAX_TRACK_DURATION_SECONDS.
+    // Only applies to music tracks (ads are already capped at <= 60s).
+    // Excluded tracks are simply skipped, not queued for later.
+    const filteredTracks = updatedTracks.filter(
+      (t) => t.isAd || t.duration <= config.maxTrackDurationSeconds
+    );
+
+    conductor.setPlaylist(filteredTracks, ads, config.adsCount);
+
+    if (tracksNeedingMetadata.length > 0) {
+      console.log(`Playlist refreshed: ${filteredTracks.length} tracks, ${ads.length} ads (durations fetched)`);
     } else {
-      conductor.setPlaylist(tracks, ads, config.adsCount);
-      console.log(`Playlist refreshed: ${tracks.length} tracks, ${ads.length} ads`);
+      console.log(`Playlist refreshed: ${filteredTracks.length} tracks, ${ads.length} ads`);
     }
   } catch (error) {
     console.error("Failed to refresh playlist:", error);

@@ -293,6 +293,144 @@ describe("Conductor - Live State Computation", () => {
     expect(state.position).toBe(0);
   });
 
+  test("current track is excluded from queue after bootstrap (no replay on transition)", async () => {
+    const track1: Track = { id: "t1", title: "Track 1", duration: 1, isAd: false };
+    const track2: Track = { id: "t2", title: "Track 2", duration: 300, isAd: false };
+    const track3: Track = { id: "t3", title: "Track 3", duration: 300, isAd: false };
+
+    await conductor.onClientConnect();
+    conductor.setPlaylist([track1, track2, track3], [], 3);
+
+    conductor.bootstrapFresh(undefined, false);
+
+    const state = conductor.getCurrentState();
+
+    // The current track should NOT be in the queue (otherwise it could replay)
+    expect(state.queue.some((t) => t.id === state.currentTrack?.id)).toBe(false);
+    // Queue should have 2 items (3 tracks minus 1 current)
+    expect(state.queue.length).toBe(2);
+  });
+
+  test("track advances linearly through queue without replaying", async () => {
+    const track1: Track = { id: "t1", title: "Track 1", duration: 1, isAd: false };
+    const track2: Track = { id: "t2", title: "Track 2", duration: 1, isAd: false };
+    const track3: Track = { id: "t3", title: "Track 3", duration: 1, isAd: false };
+
+    await conductor.onClientConnect();
+    conductor.setPlaylist([track1, track2, track3], [], 3);
+
+    // Bootstrap with useRandomStart=false so we know which track is current
+    conductor.bootstrapFresh(undefined, false);
+
+    const initialState = conductor.getCurrentState();
+    const currentId = initialState.currentTrack?.id;
+
+    // First queue item should NOT be the current track
+    const nextId = initialState.queue[0]?.id;
+    expect(nextId).not.toBe(currentId);
+
+    // Wait for track 1 to end
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+    const state2 = conductor.getCurrentState();
+    expect(state2.currentTrack?.id).not.toBe(currentId);
+    expect(state2.currentTrack?.id).toBe(nextId);
+
+    // Wait for track 2 to end
+    const nextId2 = state2.queue[0]?.id;
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+    const state3 = conductor.getCurrentState();
+    expect(state3.currentTrack?.id).not.toBe(currentId);
+    expect(state3.currentTrack?.id).not.toBe(nextId);
+    expect(state3.currentTrack?.id).toBe(nextId2);
+  });
+
+  test("ad in queue plays for full duration before advancing", async () => {
+    const musicTrack: Track = { id: "t1", title: "Track 1", duration: 1, isAd: false };
+    const adTrack: Track = { id: "ad1", title: "Ad", duration: 10, isAd: true };
+    const nextMusic: Track = { id: "t2", title: "Track 2", duration: 300, isAd: false };
+
+    await conductor.onClientConnect();
+
+    // Directly set state: music track (1s) is current, ad (10s) is next in queue
+    const now = Math.floor(Date.now() / 1000);
+    conductor["state"] = {
+      currentTrack: musicTrack,
+      position: 0,
+      queue: [adTrack, nextMusic],
+      isPlaying: true,
+      lastUpdated: now,
+      clientCount: 1,
+    };
+
+    // Wait for music track to end (1s + buffer)
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const state1 = conductor.getCurrentState();
+    // Should be on the ad
+    expect(state1.currentTrack?.isAd).toBe(true);
+    expect(state1.currentTrack?.id).toBe("ad1");
+
+    // Wait 3 more seconds (ad is 10s — should still be playing)
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const state2 = conductor.getCurrentState();
+    // Still on the ad, position should have advanced (not restarted)
+    expect(state2.currentTrack?.id).toBe("ad1");
+    expect(state2.position).toBeGreaterThan(state1.position);
+  }, 10000);
+
+  test("ad track plays for full duration without premature transition (state persistence bug)", async () => {
+    const musicTrack: Track = {
+      id: "music1",
+      title: "Music",
+      duration: 1,
+      isAd: false,
+    };
+    const adTrack: Track = {
+      id: "ad1",
+      title: "Ad",
+      duration: 60,
+      isAd: true,
+    };
+
+    await conductor.onClientConnect();
+
+    // Manually set state: music track (1s duration) is current, ad is next in queue
+    const now = Math.floor(Date.now() / 1000);
+    conductor["state"] = {
+      currentTrack: musicTrack,
+      position: 0,
+      queue: [adTrack],
+      isPlaying: true,
+      lastUpdated: now,
+      clientCount: 1,
+    };
+
+    // Wait for music track to end (1s + buffer)
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // First call should transition from music track to ad
+    const state1 = conductor.getCurrentState();
+    expect(state1.currentTrack?.id).toBe("ad1");
+    expect(state1.isPlaying).toBe(true);
+
+    // Wait 1 more second (ad has 60s duration — should still be playing)
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Second call — ad should still be playing with advanced position
+    // With the bug: state2.position resets to ~0 (transition re-triggers, ad restarts)
+    // With the fix: state2.position advances (state is persisted after transition)
+    const state2 = conductor.getCurrentState();
+    expect(state2.currentTrack?.id).toBe("ad1");
+    expect(state2.position).toBeGreaterThan(state1.position);
+
+    // Wait 1 more second — position should advance again
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const state3 = conductor.getCurrentState();
+    expect(state3.currentTrack?.id).toBe("ad1");
+    expect(state3.position).toBeGreaterThan(state2.position);
+  });
+
   test("queue exhausted during live playback starts next track at position 0", async () => {
     // Use tracks with duration 1 so they end quickly
     const track1: Track = {

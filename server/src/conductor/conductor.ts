@@ -188,21 +188,15 @@ export class Conductor {
    *   the track (30s window from end). When false, starts at position 0 — used
    *   for non-bootstrap track transitions (e.g. queue exhausted during live playback).
    */
-    bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
+  bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
     const tracks = playlist ?? this.getAvailableTracks();
     const musicTracks = tracks.filter((t) => !t.isAd);
     const now = Math.floor(Date.now() / 1000);
-
-    // Always rebuild the queue from the full playlist with ad injection.
-    // This ensures the Up Next list is always populated after bootstrap,
-    // even if the existing queue was empty or stale. The playlist used for
-    // queue building comes from setPlaylist() (the canonical fetched playlist),
-    // falling back to the available tracks when no playlist has been set yet
-    // (e.g. initial bootstrap before the first Slack fetch completes).
     const playlistForQueue = this.currentPlaylist ?? tracks;
-    const queue = this.injectAds(playlistForQueue, this.currentAds, this.currentAdsCount);
 
     if (musicTracks.length === 0) {
+      // No music tracks available — build queue with ads only
+      const queue = this.injectAds(playlistForQueue, this.currentAds, this.currentAdsCount);
       return {
         currentTrack: null,
         position: 0,
@@ -216,6 +210,13 @@ export class Conductor {
     // Pick a random track
     const randomIndex = Math.floor(Math.random() * musicTracks.length);
     const selectedTrack = musicTracks[randomIndex]!;
+
+    // Build queue from remaining tracks, excluding the selected current track.
+    // Without this exclusion, the current track remains in the queue and can
+    // be returned by queue.shift() when it ends, causing the same track to
+    // replay (the "returns to beginning of playlist" bug).
+    const remainingTracks = playlistForQueue.filter((t) => t.id !== selectedTrack.id);
+    const queue = this.injectAds(remainingTracks, this.currentAds, this.currentAdsCount);
 
     let position: number;
     if (useRandomStart) {
@@ -244,7 +245,7 @@ export class Conductor {
   /**
    * Compute the live state based on elapsed time since last update.
    */
-  private computeLiveState(): PlaybackState {
+   private computeLiveState(): PlaybackState {
     if (this.state.clientCount === 0) {
       return { ...this.state };
     }
@@ -276,17 +277,26 @@ export class Conductor {
           currentTrack = newState.currentTrack;
           queue = newState.queue;
           position = newState.position;
+          lastUpdated = newState.lastUpdated;
         }
       }
     }
 
-    return {
+    const newState: PlaybackState = {
       ...this.state,
       currentTrack,
       position,
       queue,
       lastUpdated,
     };
+
+    // Persist the computed state so subsequent calls start from the correct
+    // current track, position, and timestamp. Without this, every call to
+    // computeLiveState() re-computes from stale this.state, causing track
+    // transitions to be re-triggered on every call (the "plays for ~1 second
+    // then loops back" bug for ads).
+    this.applyState(newState);
+    return newState;
   }
 
   /**
