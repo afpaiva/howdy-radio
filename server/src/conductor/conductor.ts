@@ -13,6 +13,11 @@ export class Conductor {
   private currentAds: Track[] = [];
   private currentAdsCount: number = 3;
 
+  // Library of all available tracks (music + ads), used for queue refilling.
+  // Updated by setPlaylist(); refillQueue() draws from this pool.
+  private libraryMusic: Track[] = [];
+  private libraryAds: Track[] = [];
+
   // Idle/grace period tracking
   private idleSnapshot: StateSnapshot | null = null; // Stored when last client disconnects
 
@@ -21,6 +26,11 @@ export class Conductor {
   private bootstrapResolve: (() => void) | null = null;
 
   private readonly gracePeriodSeconds: number;
+
+  // Maximum number of upcoming tracks in the queue at any time.
+  // When a track is consumed, a new one is randomly drawn from the library
+  // to replace it, maintaining a sliding window of upcoming playback.
+  private readonly MAX_QUEUE_SIZE = 15;
 
   constructor(gracePeriodMinutes: number = 5) {
     this.gracePeriodSeconds = gracePeriodMinutes * 60;
@@ -188,59 +198,64 @@ export class Conductor {
    *   the track (30s window from end). When false, starts at position 0 — used
    *   for non-bootstrap track transitions (e.g. queue exhausted during live playback).
    */
-  bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
-    const tracks = playlist ?? this.getAvailableTracks();
-    const musicTracks = tracks.filter((t) => !t.isAd);
-    const now = Math.floor(Date.now() / 1000);
-    const playlistForQueue = this.currentPlaylist ?? tracks;
+   bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
+     const tracks = playlist ?? this.getAvailableTracks();
+     const musicTracks = tracks.filter((t) => !t.isAd);
+     const now = Math.floor(Date.now() / 1000);
+     const playlistForQueue = this.currentPlaylist ?? tracks;
 
-    if (musicTracks.length === 0) {
-      // No music tracks available — build queue with ads only
-      const queue = this.injectAds(playlistForQueue, this.currentAds, this.currentAdsCount);
-      return {
-        currentTrack: null,
-        position: 0,
-        queue,
-        isPlaying: false,
-        lastUpdated: now,
-        clientCount: this.state.clientCount,
-      };
-    }
+     if (musicTracks.length === 0) {
+       // No music tracks available — build queue with ads only
+       const queue = this.injectAds(playlistForQueue, this.currentAds, this.currentAdsCount);
+       return {
+         currentTrack: null,
+         position: 0,
+         queue,
+         isPlaying: false,
+         lastUpdated: now,
+         clientCount: this.state.clientCount,
+       };
+     }
 
-    // Pick a random track
-    const randomIndex = Math.floor(Math.random() * musicTracks.length);
-    const selectedTrack = musicTracks[randomIndex]!;
+     // Pick a random track
+     const randomIndex = Math.floor(Math.random() * musicTracks.length);
+     const selectedTrack = musicTracks[randomIndex]!;
 
-    // Build queue from remaining tracks, excluding the selected current track.
-    // Without this exclusion, the current track remains in the queue and can
-    // be returned by queue.shift() when it ends, causing the same track to
-    // replay (the "returns to beginning of playlist" bug).
-    const remainingTracks = playlistForQueue.filter((t) => t.id !== selectedTrack.id);
-    const queue = this.injectAds(remainingTracks, this.currentAds, this.currentAdsCount);
+     // Build queue from remaining tracks, excluding the selected current track.
+     // Without this exclusion, the current track remains in the queue and can
+     // be returned by queue.shift() when it ends, causing the same track to
+     // replay (the "returns to beginning of playlist" bug).
+     const remainingTracks = playlistForQueue.filter((t) => t.id !== selectedTrack.id);
+     let queue = this.injectAds(remainingTracks, this.currentAds, this.currentAdsCount);
 
-    let position: number;
-    if (useRandomStart) {
-      // Start at a random position within the track (genuine bootstrap)
-      // Music tracks may start mid-way (per hard rule #7)
-      const maxStartPosition = Math.max(0, selectedTrack.duration - 30);
-      position = Math.floor(Math.random() * (maxStartPosition + 1));
-    } else {
-      // Non-bootstrap transition: start from beginning
-      position = 0;
-    }
+     // Cap at MAX_QUEUE_SIZE for sliding-window queue management
+     if (queue.length > this.MAX_QUEUE_SIZE) {
+       queue = queue.slice(0, this.MAX_QUEUE_SIZE);
+     }
 
-    const state: PlaybackState = {
-      currentTrack: selectedTrack,
-      position,
-      queue,
-      isPlaying: true,
-      lastUpdated: now,
-      clientCount: this.state.clientCount,
-    };
+     let position: number;
+     if (useRandomStart) {
+       // Start at a random position within the track (genuine bootstrap)
+       // Music tracks may start mid-way (per hard rule #7)
+       const maxStartPosition = Math.max(0, selectedTrack.duration - 30);
+       position = Math.floor(Math.random() * (maxStartPosition + 1));
+     } else {
+       // Non-bootstrap transition: start from beginning
+       position = 0;
+     }
 
-    this.applyState(state);
-    return state;
-  }
+     const state: PlaybackState = {
+       currentTrack: selectedTrack,
+       position,
+       queue,
+       isPlaying: true,
+       lastUpdated: now,
+       clientCount: this.state.clientCount,
+     };
+
+     this.applyState(state);
+     return state;
+   }
 
   /**
    * Compute the live state based on elapsed time since last update.
@@ -270,6 +285,8 @@ export class Conductor {
           const nextTrack = queue.shift()!;
           currentTrack = nextTrack;
           position = 0; // All tracks start from beginning on queue advance
+          // Refill queue from library — add a new random track to the end
+          this.refillQueue(queue, currentTrack);
         } else {
           // Queue is empty - pick new track without random start position
           // (non-bootstrap transition: start from beginning)
@@ -356,6 +373,50 @@ export class Conductor {
   }
 
   /**
+   * Refill the queue after a track is consumed (shifted out).
+   * Randomly picks a new track from the library (ad or music) and appends it
+   * to the queue, excluding tracks already in the queue or currently playing.
+   * This maintains a sliding window of up to MAX_QUEUE_SIZE items.
+   *
+   * Per SPEC.md: "everytime a song is pulled out the playlist (because the song
+   * is finished) we add a different one at the end of the playlist."
+   *
+   * @param newCurrentTrack The track that was just shifted to current position
+   *   (needed because this.state hasn't been updated yet at call time)
+   */
+  private refillQueue(queue: Track[], newCurrentTrack: Track | null): void {
+    if (queue.length >= this.MAX_QUEUE_SIZE) return;
+
+    // Exclude tracks already in queue and currently playing tracks
+    // (both the old currentTrack in this.state and the new one being transitioned to)
+    const excludedIds = new Set(queue.map((t) => t.id));
+    if (this.state.currentTrack) {
+      excludedIds.add(this.state.currentTrack.id);
+    }
+    if (newCurrentTrack) {
+      excludedIds.add(newCurrentTrack.id);
+    }
+
+    // Randomly decide: ad or music
+    const useAd = Math.random() < 0.5;
+    let pool = useAd ? this.libraryAds : this.libraryMusic;
+
+    // Find available tracks (not excluded)
+    let available = pool.filter((t) => !excludedIds.has(t.id));
+
+    // If chosen pool is exhausted, try the other pool
+    if (available.length === 0) {
+      pool = useAd ? this.libraryMusic : this.libraryAds;
+      available = pool.filter((t) => !excludedIds.has(t.id));
+    }
+
+    if (available.length > 0) {
+      const track = available[Math.floor(Math.random() * available.length)]!;
+      queue.push({ ...track }); // Clone to avoid mutation
+    }
+  }
+
+  /**
    * Get the current state for broadcasting to clients.
    */
   getCurrentState(): PlaybackState {
@@ -398,27 +459,55 @@ export class Conductor {
 
   /**
    * Set the playlist (called when Slack fetch completes or mock playlist loads).
-   * Stores the raw playlist tracks, ads, and adsCount for future queue rebuilding.
+   * Updates the music/ad libraries. Only builds an initial queue if the
+   * current queue is empty — otherwise preserves the existing queue to
+   * maintain playback continuity (no reshuffling during live playback).
    */
   setPlaylist(tracks: Track[], ads: Track[], adsCount: number): void {
     this.currentPlaylist = tracks;
     this.currentAds = ads;
     this.currentAdsCount = adsCount;
 
-    // Exclude the currently playing track from the new queue to prevent
-    // the same track from being returned by queue.shift() when it ends.
-    // This is critical when setPlaylist() is called during live playback
-    // (e.g. periodic 5-minute refresh) — without this, the current track
-    // re-enters the queue and replays indefinitely.
-    const currentTrackId = this.state.currentTrack?.id;
-    const queueTracks = currentTrackId
-      ? tracks.filter((t) => t.id !== currentTrackId)
-      : tracks;
-    const queue = this.injectAds(queueTracks, ads, adsCount);
-    this.state.queue = queue;
+    // Store in library for queue refilling
+    this.libraryMusic = tracks.filter((t) => !t.isAd);
+    this.libraryAds = [...ads];
 
-    // If currently playing, update the queue
-    // The current track and position remain unchanged
+    // Only build the initial queue if one doesn't exist yet.
+    // During live playback, the queue is managed incrementally by
+    // refillQueue() as tracks are consumed — rebuilding here would
+    // shuffle the queue and disrupt the user's listening experience.
+    if (this.state.queue.length === 0) {
+      this.state.queue = this.buildInitialQueue();
+    }
+  }
+
+  /**
+   * Build the initial queue from the library, injecting ads at segment boundaries.
+   * Excludes the currently selected track (if already playing).
+   */
+  private buildInitialQueue(): Track[] {
+    const currentTrackId = this.state.currentTrack?.id;
+    let queueTracks = [...this.libraryMusic];
+    if (currentTrackId) {
+      queueTracks = queueTracks.filter((t) => t.id !== currentTrackId);
+    }
+    let queue = this.injectAds(queueTracks, this.currentAds, this.currentAdsCount);
+
+    // Refill up to MAX_QUEUE_SIZE using the sliding-window approach
+    while (queue.length < this.MAX_QUEUE_SIZE && queueTracks.length > 0) {
+      const remaining = queueTracks.filter(
+        (t) => !queue.some((q) => q.id === t.id) && t.id !== currentTrackId
+      );
+      if (remaining.length === 0) break;
+      const track = remaining[Math.floor(Math.random() * remaining.length)]!;
+      queue.push({ ...track });
+    }
+
+    if (queue.length > this.MAX_QUEUE_SIZE) {
+      queue = queue.slice(0, this.MAX_QUEUE_SIZE);
+    }
+
+    return queue;
   }
 
   /**
@@ -450,6 +539,8 @@ export class Conductor {
     this.currentPlaylist = null;
     this.currentAds = [];
     this.currentAdsCount = 3;
+    this.libraryMusic = [];
+    this.libraryAds = [];
     this.idleSnapshot = null;
     this.bootstrapLock = null;
     this.bootstrapResolve = null;
