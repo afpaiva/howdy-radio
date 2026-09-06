@@ -8,7 +8,6 @@ export class WsHandler {
   private conductor: Conductor;
   private slack: SlackService;
   private youtube: YouTubeService;
-  private tickInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     io: Server,
@@ -90,40 +89,37 @@ export class WsHandler {
   /**
    * Start periodic state broadcasting (called when clients are connected).
    * Emits `tick` (position-only updates) on each interval to keep clients'
-   * clocks advancing in real time, and `state` on significant changes
-   * (track transitions) so clients know to switch to the new track.
+   * clocks advancing in real time. When a track transition is detected
+   * (currentTrack changes — e.g. an ad finishes and the next music track
+   * begins), emits a full `state` snapshot so the client receives the
+   * updated currentTrack and queue instead of stale data.
    */
   startTicking(intervalMs: number = 1000): void {
-    let lastTrackId: string | null = null;
-    this.tickInterval = setInterval(() => {
+    const state = this.conductor.getCurrentState();
+    let lastTrackId = state.currentTrack?.id ?? null;
+
+    setInterval(() => {
       if (this.conductor.getClientCount() > 0) {
+        // Persist any track transition to internal state so the next
+        // tick doesn't recompute the same transition from the stale base.
+        this.conductor.advanceIfNeeded();
+
         const state = this.conductor.getCurrentState();
+        const trackId = state.currentTrack?.id ?? null;
 
-        // On track change, emit full state so clients switch to the new track.
-        // Without this, clients only see position reset to 0 via `tick` and
-        // restart the SAME track from the beginning (the "plays in a loop" bug).
-        const currentTrackId = state.currentTrack?.id ?? null;
-        if (currentTrackId !== lastTrackId) {
+        if (trackId !== lastTrackId) {
+          // Track transition! Emit full state so the client's queue and
+          // currentTrack are updated — not just position/isPlaying.
+          lastTrackId = trackId;
           this.io.emit("state", state);
-          lastTrackId = currentTrackId;
+        } else {
+          // Same track — cheap position-only update so clients advance their clock.
+          this.io.emit("tick", {
+            position: state.position,
+            isPlaying: state.isPlaying,
+          });
         }
-
-        // Emit tick — cheap position-only update so clients advance their clock
-        this.io.emit("tick", {
-          position: state.position,
-          isPlaying: state.isPlaying,
-        });
       }
-     }, intervalMs);
-  }
-
-  /**
-   * Stop the periodic state broadcasting.
-   */
-  stopTicking(): void {
-    if (this.tickInterval) {
-      clearInterval(this.tickInterval);
-      this.tickInterval = null;
-    }
+    }, intervalMs);
   }
 }
