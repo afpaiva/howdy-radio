@@ -11,7 +11,7 @@ of agent judgment.
 
 | Role | Tool / Model | Responsibility | Context given |
 |---|---|---|---|
-| **Spec & System Author** | Claude (this conversation) | Authors and maintains SPEC.md and SYSTEM.md collaboratively with the human, across the full history of the project's decisions | Full conversation history + all prior decisions |
+| **Spec & System Author** | Claude Sonnet 5 (chat) | Authors and maintains SPEC.md and SYSTEM.md collaboratively with the human, across the full history of the project's decisions | Full conversation history + all prior decisions |
 | **Planner (Alignment Review)** | OpenCode + `thinkingmachines/inkling:free` | Audits the actual codebase against SPEC.md/SYSTEM.md and reports drift — does not author documents | Full spec/system + read access to source code |
 | **Skeleton Implementer** | OpenCode + `z-ai/glm-5.2:free` | Built the neutral, unstyled Skin interface + WebSocket client wiring, validated against real server state | SPEC.md (Architecture, Skin Interface) |
 | **Skin Implementers (×4, parallel)** | OpenCode + `minimax/minimax-m3:free` | Implemented Winamp, Atari, Walkman, Tamagotchi skins independently, each scoped to its own directory | SPEC.md (Skin System) + shared `Skin` interface contract only — no access to other skins' code |
@@ -194,5 +194,11 @@ AI-DEV-LOG.md, e.g.:]
   even under a merge inversion: the client agent found a server bug
   mid-integration but declined to fix it out-of-scope, reporting it
   back for the correct agent to handle.
+- After an agent session inadvertently printed `.env` secrets to the
+  terminal (likely exposing them to the model provider via context),
+  rotated all affected credentials immediately and added an explicit
+  hard rule to AGENTS.md prohibiting commands that output secret
+  values — treating this as a deterministic control rather than
+  relying on agents to infer discretion around sensitive files.
 
 See `/docs/AI-DEV-LOG.md` for the full chronological account.
