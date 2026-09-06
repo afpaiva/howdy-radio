@@ -1,4 +1,4 @@
-import type { Track, YouTubeConfig } from "../types";
+import type { Track, YouTubeConfig, VideoMetadata } from "../types";
 import { SeedPlaylist } from "../seed/playlist";
 
 export class YouTubeService {
@@ -26,11 +26,11 @@ export class YouTubeService {
   }
 
   /**
-   * Batch-fetch video durations from the YouTube Data API v3.
-   * Returns a map of videoId → duration in seconds.
+   * Batch-fetch video metadata (duration + title) from the YouTube Data API v3.
+   * Returns a map of videoId → { duration, title }.
    * Returns an empty map if the API key is not configured (mock mode).
    */
-  async fetchVideoDurations(videoIds: string[]): Promise<Map<string, number>> {
+  async fetchVideoMetadata(videoIds: string[]): Promise<Map<string, VideoMetadata>> {
     if (!this.config.apiKey || videoIds.length === 0) {
       return new Map();
     }
@@ -42,11 +42,12 @@ export class YouTubeService {
         batches.push(videoIds.slice(i, i + 50));
       }
 
-      const durationMap = new Map<string, number>();
+      const metadataMap = new Map<string, VideoMetadata>();
 
       for (const batch of batches) {
+        // Fetch both contentDetails (duration) and snippet (title) in one request
         const response = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${batch.join(",")}&key=${this.config.apiKey}`
+          `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${batch.join(",")}&key=${this.config.apiKey}`
         );
 
         if (!response.ok) {
@@ -58,14 +59,17 @@ export class YouTubeService {
         for (const item of data.items) {
           const duration = this.parseDuration(item.contentDetails?.duration);
           if (duration > 0) {
-            durationMap.set(item.id, duration);
+            metadataMap.set(item.id, {
+              duration,
+              title: item.snippet?.title || "",
+            });
           }
         }
       }
 
-      return durationMap;
+      return metadataMap;
     } catch (error) {
-      console.error("Failed to fetch video durations:", error);
+      console.error("Failed to fetch video metadata:", error);
       return new Map();
     }
   }

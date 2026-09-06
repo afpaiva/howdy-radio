@@ -303,18 +303,23 @@ async function refreshPlaylist(): Promise<void> {
       youtubeService.fetchShorts(),
     ]);
 
-    // Fetch real video durations for Slack-sourced tracks.
-    // In mock mode, tracks already have correct durations from seed data (duration > 0).
-    // In production mode, tracks have duration: 0 and need real durations fetched.
-    const tracksNeedingDurations = tracks.filter((t) => t.duration === 0);
-    if (tracksNeedingDurations.length > 0) {
-      const videoIds = tracksNeedingDurations.map((t) => t.id);
-      const durationMap = await youtubeService.fetchVideoDurations(videoIds);
-      const updatedTracks = tracks.map((t) => ({
-        ...t,
-        // Use real duration if available; fall back to 180s default for music videos
-        duration: durationMap.get(t.id) ?? (t.duration > 0 ? t.duration : 180),
-      }));
+     // Fetch real video metadata (duration + title) for Slack-sourced tracks.
+    // In mock mode, tracks already have correct durations and titles from seed data.
+    // In production mode, tracks have duration: 0 and title set to the raw URL.
+    const tracksNeedingMetadata = tracks.filter((t) => t.duration === 0);
+    if (tracksNeedingMetadata.length > 0) {
+      const videoIds = tracksNeedingMetadata.map((t) => t.id);
+      const metadataMap = await youtubeService.fetchVideoMetadata(videoIds);
+      const updatedTracks = tracks.map((t) => {
+        const metadata = metadataMap.get(t.id);
+        return {
+          ...t,
+          // Use real duration if available; fall back to 180s default for music videos
+          duration: metadata?.duration ?? (t.duration > 0 ? t.duration : 180),
+          // Replace raw URL title with actual YouTube video title when available
+          title: metadata?.title || t.title,
+        };
+      });
       conductor.setPlaylist(updatedTracks, ads, config.adsCount);
       console.log(`Playlist refreshed: ${updatedTracks.length} tracks, ${ads.length} ads (durations fetched)`);
     } else {

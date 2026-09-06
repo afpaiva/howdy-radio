@@ -57,6 +57,11 @@ export interface YouTubeConfig {
   adsCount: number;
 }
 
+export interface VideoMetadata {
+  duration: number;
+  title: string;
+}
+
 export interface ServerConfig {
   reconnectGracePeriodMinutes: number;
   authProvider: "stub" | "slack" | "google";

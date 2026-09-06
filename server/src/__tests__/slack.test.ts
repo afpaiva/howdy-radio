@@ -114,6 +114,25 @@ describe("SlackService - YouTube URL Extraction", () => {
     expect(tracks.length).toBe(0);
   });
 
+  test("sets title to raw URL (enriched later by fetchVideoMetadata in refreshPlaylist)", async () => {
+    // Slack-extracted tracks start with title=url and duration=0.
+    // The refreshPlaylist() function in index.ts calls fetchVideoMetadata()
+    // to replace the URL title with the actual YouTube video title and
+    // fetch the real duration. This test documents the pre-enrichment state.
+    const messages: SlackMessage[] = [
+      {
+        type: "message",
+        user: "U123",
+        text: "Check out: https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        ts: "1234567890.001234",
+      },
+    ];
+
+    const tracks = await slackService.extractYouTubeLinks(messages);
+    expect(tracks[0]!.title).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    expect(tracks[0]!.duration).toBe(0);
+  });
+
   test("handles empty text", async () => {
     const messages: SlackMessage[] = [
       {
