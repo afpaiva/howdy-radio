@@ -22,7 +22,7 @@ jobs:
       - name: Google Auth
         uses: google-github-actions/auth@v2
         with:
-          service_account: 'github-actions-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
+          service_account: 'github-actions-sa@afpaiva-dev.iam.gserviceaccount.com'
           workload_identity_provider: '${{ secrets.GCP_WIP }}'
 
       - name: Set up Cloud SDK
