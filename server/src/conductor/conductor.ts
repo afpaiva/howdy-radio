@@ -404,7 +404,17 @@ export class Conductor {
     this.currentPlaylist = tracks;
     this.currentAds = ads;
     this.currentAdsCount = adsCount;
-    const queue = this.injectAds(tracks, ads, adsCount);
+
+    // Exclude the currently playing track from the new queue to prevent
+    // the same track from being returned by queue.shift() when it ends.
+    // This is critical when setPlaylist() is called during live playback
+    // (e.g. periodic 5-minute refresh) — without this, the current track
+    // re-enters the queue and replays indefinitely.
+    const currentTrackId = this.state.currentTrack?.id;
+    const queueTracks = currentTrackId
+      ? tracks.filter((t) => t.id !== currentTrackId)
+      : tracks;
+    const queue = this.injectAds(queueTracks, ads, adsCount);
     this.state.queue = queue;
 
     // If currently playing, update the queue

@@ -8,6 +8,7 @@ export class WsHandler {
   private conductor: Conductor;
   private slack: SlackService;
   private youtube: YouTubeService;
+  private tickInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     io: Server,
@@ -89,18 +90,40 @@ export class WsHandler {
   /**
    * Start periodic state broadcasting (called when clients are connected).
    * Emits `tick` (position-only updates) on each interval to keep clients'
-   * clocks advancing in real time, and `state` on significant changes.
+   * clocks advancing in real time, and `state` on significant changes
+   * (track transitions) so clients know to switch to the new track.
    */
   startTicking(intervalMs: number = 1000): void {
-    setInterval(() => {
+    let lastTrackId: string | null = null;
+    this.tickInterval = setInterval(() => {
       if (this.conductor.getClientCount() > 0) {
         const state = this.conductor.getCurrentState();
+
+        // On track change, emit full state so clients switch to the new track.
+        // Without this, clients only see position reset to 0 via `tick` and
+        // restart the SAME track from the beginning (the "plays in a loop" bug).
+        const currentTrackId = state.currentTrack?.id ?? null;
+        if (currentTrackId !== lastTrackId) {
+          this.io.emit("state", state);
+          lastTrackId = currentTrackId;
+        }
+
         // Emit tick — cheap position-only update so clients advance their clock
         this.io.emit("tick", {
           position: state.position,
           isPlaying: state.isPlaying,
         });
       }
-    }, intervalMs);
+     }, intervalMs);
+  }
+
+  /**
+   * Stop the periodic state broadcasting.
+   */
+  stopTicking(): void {
+    if (this.tickInterval) {
+      clearInterval(this.tickInterval);
+      this.tickInterval = null;
+    }
   }
 }
