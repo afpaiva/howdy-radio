@@ -33,8 +33,8 @@ export class WsHandler {
       // Handle the connect flow — emits full state snapshot on connect
       this.handleConnect(socket);
 
-      // Handle the 'join' event directly (client emits this after tuning in)
-      socket.on("join", () => {
+      // Handle the 'join-broadcast' event directly (client emits this after tuning in)
+      socket.on("join-broadcast", () => {
         this.handleJoin(socket);
       });
 
@@ -67,9 +67,9 @@ export class WsHandler {
   }
 
   /**
-   * Handle the 'join' control intent from a client.
-   * Per SPEC.md: client emits 'join' to satisfy autoplay interaction requirement
-   * and signal readiness. Server rebroadcasts current state in response.
+   * Handle the 'join-broadcast' control intent from a client.
+   * Per SPEC.md: client emits 'join-broadcast' to satisfy autoplay interaction
+   * requirement and signal readiness. Server rebroadcasts current state in response.
    */
   private handleJoin(socket: Socket): void {
     // Client has acknowledged they want to start playback.

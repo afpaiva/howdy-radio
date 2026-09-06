@@ -205,3 +205,87 @@ describe("SlackService - Mock Mode", () => {
     expect(tracks.every((t) => !t.isAd)).toBe(true);
   });
 });
+
+describe("SlackService - Display Name Fallback", () => {
+  test("falls back to realName when display_name is empty", async () => {
+    const service = new SlackService({
+      botToken: "test-token",
+      channelId: "test-channel",
+    });
+
+    // Override getUserInfo to simulate a user with empty display_name
+    service.getUserInfo = async (userId: string) => {
+      if (userId === "U123") {
+        return { displayName: "", realName: "Alice Johnson" };
+      }
+      return null;
+    };
+
+    const messages: SlackMessage[] = [
+      {
+        type: "message",
+        user: "U123",
+        text: "Check out: https://youtube.com/watch?v=dQw4w9WgXcQ",
+        ts: "1234567890.001234",
+      },
+    ];
+
+    const tracks = await service.extractYouTubeLinks(messages);
+    expect(tracks[0]!.postedBy?.displayName).toBe("Alice Johnson");
+    expect(tracks[0]!.postedBy?.realName).toBe("Alice Johnson");
+    // Must NOT fall back to raw Slack user ID
+    expect(tracks[0]!.postedBy?.displayName).not.toBe("U123");
+  });
+
+  test("falls back to 'unknown' when both display_name and realName are empty", async () => {
+    const service = new SlackService({
+      botToken: "test-token",
+      channelId: "test-channel",
+    });
+
+    service.getUserInfo = async (userId: string) => {
+      if (userId === "U123") {
+        return { displayName: "", realName: undefined };
+      }
+      return null;
+    };
+
+    const messages: SlackMessage[] = [
+      {
+        type: "message",
+        user: "U123",
+        text: "Check out: https://youtube.com/watch?v=dQw4w9WgXcQ",
+        ts: "1234567890.001234",
+      },
+    ];
+
+    const tracks = await service.extractYouTubeLinks(messages);
+    expect(tracks[0]!.postedBy?.displayName).toBe("unknown");
+  });
+
+  test("uses display_name when it is non-empty", async () => {
+    const service = new SlackService({
+      botToken: "test-token",
+      channelId: "test-channel",
+    });
+
+    service.getUserInfo = async (userId: string) => {
+      if (userId === "U123") {
+        return { displayName: "alice_s", realName: "Alice Johnson" };
+      }
+      return null;
+    };
+
+    const messages: SlackMessage[] = [
+      {
+        type: "message",
+        user: "U123",
+        text: "Check out: https://youtube.com/watch?v=dQw4w9WgXcQ",
+        ts: "1234567890.001234",
+      },
+    ];
+
+    const tracks = await service.extractYouTubeLinks(messages);
+    expect(tracks[0]!.postedBy?.displayName).toBe("alice_s");
+  });
+});

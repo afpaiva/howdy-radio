@@ -19,9 +19,13 @@ import { WsHandler } from "./src/ws/handler";
 import type { ServerConfig } from "./src/types";
 import jwt from "jsonwebtoken";
 
-// JWT secret — falls back to a random value if not set (sufficient for v1
-// stub auth; real SSO providers manage their own secrets in production)
-const JWT_SECRET = process.env.JWT_SECRET || Math.random().toString(36).slice(2);
+// JWT secret — reads from AUTH_JWT_SECRET in .env. Falls back to a random
+// value only if not configured (sufficient for v1 stub auth; real SSO
+// providers manage their own secrets in production).
+// NOTE: the env var must be AUTH_JWT_SECRET to match the .env file — using
+// a different name causes a new random secret on every server restart,
+// invalidating all previously issued session cookies.
+const JWT_SECRET = process.env.AUTH_JWT_SECRET ||"_secret_";
 const JWT_EXPIRES_IN = "24h";
 
 // Resolve the client dist directory (sibling of server/)
@@ -110,6 +114,12 @@ function handleRequest(req: any, res: any): void {
   // Handle POST /auth/login
   if (req.method === "POST" && req.url === "/auth/login") {
     handleAuthLogin(req, res);
+    return;
+  }
+
+  // Handle GET /auth/me — verify JWT session cookie and return user identity
+  if (req.method === "GET" && req.url === "/auth/me") {
+    handleAuthMe(req, res);
     return;
   }
 
@@ -244,6 +254,45 @@ async function handleAuthLogin(req: any, res: any): Promise<void> {
     console.error("Auth login error:", error);
     res.writeHead(500, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Internal server error" }));
+  }
+}
+
+/**
+ * Extract the session token from the Cookie header.
+ * Returns null if the cookie is absent.
+ */
+function getSessionToken(cookieHeader: string | undefined): string | null {
+  if (!cookieHeader) {
+    return null;
+  }
+  const match = cookieHeader.match(/(?:^|;\s*)session=([^;]+)/);
+  return match ? match[1] ?? null : null;
+}
+
+/**
+ * Handle GET /auth/me.
+ * Verifies the JWT session cookie and returns the decoded user identity
+ * ({ email, name? }). Returns 401 if the token is missing or invalid.
+ */
+function handleAuthMe(req: any, res: any): void {
+  const token = getSessionToken(req.headers?.cookie);
+
+  if (!token) {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not authenticated" }));
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      email: string;
+      name?: string;
+    };
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ email: decoded.email, name: decoded.name }));
+  } catch {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Invalid or expired token" }));
   }
 }
 

@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -20,10 +24,11 @@ export default defineConfig({
   // Start both the server (mock mode) and the Vite dev server.
   webServer: [
     {
-      command: 'bun --cwd server index.ts',
+      command: 'bun index.ts',
+      cwd: resolve(__dirname, '../server'),
       url: 'http://localhost:3000/health',
       reuseExistingServer: !process.env.CI,
-      timeout: 30000,
+      timeout: 60000,
     },
     {
       command: 'bun run dev',
