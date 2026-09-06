@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "bun run server.ts",
     "build": "vite build",
     "test": "vitest run",
     "test:watch": "vitest",
