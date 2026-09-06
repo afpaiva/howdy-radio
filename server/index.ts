@@ -113,6 +113,12 @@ function handleRequest(req: any, res: any): void {
     return;
   }
 
+  // Handle GET /auth/me — verify session cookie and return user info
+  if (req.method === "GET" && req.url === "/auth/me") {
+    handleAuthMe(req, res);
+    return;
+  }
+
   // Health check endpoint
   if (req.url?.startsWith("/health")) {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -244,6 +250,39 @@ async function handleAuthLogin(req: any, res: any): Promise<void> {
     console.error("Auth login error:", error);
     res.writeHead(500, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Internal server error" }));
+  }
+}
+
+/**
+ * Handle GET /auth/me.
+ * Reads the session cookie, verifies the JWT, and returns the user's info.
+ * Returns 401 if no valid session cookie is present.
+ */
+function handleAuthMe(req: any, res: any): void {
+  const cookies = req.headers.cookie || "";
+  const sessionMatch = cookies.match(/session=([^;]+)/);
+
+  if (!sessionMatch) {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "No session" }));
+    return;
+  }
+
+  const token = sessionMatch[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { email: string; name?: string };
+
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        email: decoded.email,
+        name: decoded.name,
+      })
+    );
+  } catch {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Invalid session" }));
   }
 }
 
