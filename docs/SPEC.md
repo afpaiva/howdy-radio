@@ -36,6 +36,7 @@ interface AuthProvider {
 - **Deduplication:** deduplicate based on video ID while keeping the most recent post — this prevents excessive repetition of the same song and keeps the playlist predictable.
 - Build and maintain a canonical playlist server-side (not on the frontend).
 - Playlist updates automatically as new links are posted.
+- Tracks longer than `MAX_TRACK_DURATION_SECONDS` (default: 720 — 12 minutes) are excluded from the playlist during extraction. This prevents unusually long videos (DJ sets, livestreams, long mixes) from monopolizing playback and breaking the radio's sense of rotation. Excluded tracks are simply skipped, not queued for later.
 
 ### Playback State (Single Source of Truth)
 - Server maintains authoritative state:
@@ -232,3 +233,4 @@ Skins are loaded dynamically; switching skins does not reset playback state.
 | `AUTH_PROVIDER` | Selects auth implementation (e.g. `stub`, `slack`, `google`) |
 | `SLACK_BOT_TOKEN` | Bot token for channel history + user lookup (optional in mock) |
 | `SLACK_CHANNEL_ID` | Target channel for music link extraction |
+| `MAX_TRACK_DURATION_SECONDS` | Maximum track length accepted from Slack links (default: 720) |

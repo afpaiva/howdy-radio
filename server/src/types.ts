@@ -72,4 +72,5 @@ export interface ServerConfig {
   apiKey?: string;
   youtubeChannelId?: string;
   adsCount: number;
+  maxTrackDurationSeconds: number;
 }
