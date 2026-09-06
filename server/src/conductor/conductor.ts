@@ -244,7 +244,7 @@ export class Conductor {
   /**
    * Compute the live state based on elapsed time since last update.
    */
-  private computeLiveState(): PlaybackState {
+   private computeLiveState(): PlaybackState {
     if (this.state.clientCount === 0) {
       return { ...this.state };
     }
@@ -276,17 +276,26 @@ export class Conductor {
           currentTrack = newState.currentTrack;
           queue = newState.queue;
           position = newState.position;
+          lastUpdated = newState.lastUpdated;
         }
       }
     }
 
-    return {
+    const newState: PlaybackState = {
       ...this.state,
       currentTrack,
       position,
       queue,
       lastUpdated,
     };
+
+    // Persist the computed state so subsequent calls start from the correct
+    // current track, position, and timestamp. Without this, every call to
+    // computeLiveState() re-computes from stale this.state, causing track
+    // transitions to be re-triggered on every call (the "plays for ~1 second
+    // then loops back" bug for ads).
+    this.applyState(newState);
+    return newState;
   }
 
   /**

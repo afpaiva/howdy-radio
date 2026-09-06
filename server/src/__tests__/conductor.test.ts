@@ -293,6 +293,58 @@ describe("Conductor - Live State Computation", () => {
     expect(state.position).toBe(0);
   });
 
+  test("ad track plays for full duration without premature transition (state persistence bug)", async () => {
+    const musicTrack: Track = {
+      id: "music1",
+      title: "Music",
+      duration: 1,
+      isAd: false,
+    };
+    const adTrack: Track = {
+      id: "ad1",
+      title: "Ad",
+      duration: 60,
+      isAd: true,
+    };
+
+    await conductor.onClientConnect();
+
+    // Manually set state: music track (1s duration) is current, ad is next in queue
+    const now = Math.floor(Date.now() / 1000);
+    conductor["state"] = {
+      currentTrack: musicTrack,
+      position: 0,
+      queue: [adTrack],
+      isPlaying: true,
+      lastUpdated: now,
+      clientCount: 1,
+    };
+
+    // Wait for music track to end (1s + buffer)
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // First call should transition from music track to ad
+    const state1 = conductor.getCurrentState();
+    expect(state1.currentTrack?.id).toBe("ad1");
+    expect(state1.isPlaying).toBe(true);
+
+    // Wait 1 more second (ad has 60s duration — should still be playing)
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Second call — ad should still be playing with advanced position
+    // With the bug: state2.position resets to ~0 (transition re-triggers, ad restarts)
+    // With the fix: state2.position advances (state is persisted after transition)
+    const state2 = conductor.getCurrentState();
+    expect(state2.currentTrack?.id).toBe("ad1");
+    expect(state2.position).toBeGreaterThan(state1.position);
+
+    // Wait 1 more second — position should advance again
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const state3 = conductor.getCurrentState();
+    expect(state3.currentTrack?.id).toBe("ad1");
+    expect(state3.position).toBeGreaterThan(state2.position);
+  });
+
   test("queue exhausted during live playback starts next track at position 0", async () => {
     // Use tracks with duration 1 so they end quickly
     const track1: Track = {
