@@ -348,10 +348,11 @@ async function refreshPlaylist(): Promise<void> {
 // first `state` broadcast (on connect) includes the full queue. Otherwise
 // clients see an empty "Up Next" list that briefly disappears and reappears
 // when the playlist loads 1s later (queue flicker bug).
+// Per SPEC.md, the playlist library is loaded once at bootstrap; the queue
+// is then managed incrementally by the conductor's sliding-window refill
+// logic — NOT rebuilt on a timer (which would shuffle the queue and disrupt
+// playback).
 await refreshPlaylist().catch(console.error);
-
-// Refresh playlist periodically (every 5 minutes)
-setInterval(refreshPlaylist, 5 * 60 * 1000);
 
 // Start state broadcasting
 wsHandler.startTicking(1000);
