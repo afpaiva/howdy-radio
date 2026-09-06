@@ -188,16 +188,25 @@ export class Conductor {
    *   the track (30s window from end). When false, starts at position 0 — used
    *   for non-bootstrap track transitions (e.g. queue exhausted during live playback).
    */
-   bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
+    bootstrapFresh(playlist?: Track[], useRandomStart: boolean = true): PlaybackState {
     const tracks = playlist ?? this.getAvailableTracks();
     const musicTracks = tracks.filter((t) => !t.isAd);
     const now = Math.floor(Date.now() / 1000);
+
+    // Always rebuild the queue from the full playlist with ad injection.
+    // This ensures the Up Next list is always populated after bootstrap,
+    // even if the existing queue was empty or stale. The playlist used for
+    // queue building comes from setPlaylist() (the canonical fetched playlist),
+    // falling back to the available tracks when no playlist has been set yet
+    // (e.g. initial bootstrap before the first Slack fetch completes).
+    const playlistForQueue = this.currentPlaylist ?? tracks;
+    const queue = this.injectAds(playlistForQueue, this.currentAds, this.currentAdsCount);
 
     if (musicTracks.length === 0) {
       return {
         currentTrack: null,
         position: 0,
-        queue: [...this.state.queue],
+        queue,
         isPlaying: false,
         lastUpdated: now,
         clientCount: this.state.clientCount,
@@ -217,14 +226,6 @@ export class Conductor {
     } else {
       // Non-bootstrap transition: start from beginning
       position = 0;
-    }
-
-    // Preserve the existing queue (don't wipe it — Up Next should remain populated)
-    // Rebuild queue if it was exhausted during playback
-    let queue = [...this.state.queue];
-    if (queue.length === 0 && this.currentPlaylist) {
-      // Queue was exhausted — rebuild from the playlist with fresh ad injection
-      queue = this.injectAds(this.currentPlaylist, this.currentAds, this.currentAdsCount);
     }
 
     const state: PlaybackState = {

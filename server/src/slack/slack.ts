@@ -85,9 +85,11 @@ export class SlackService {
            if (!resolvedUsers.has(msg.user)) {
              resolvedUsers.set(msg.user, await this.getUserInfo(msg.user));
            }
-           const userInfo = resolvedUsers.get(msg.user);
-           const displayName = userInfo?.displayName || msg.user || "unknown";
-           const realName = userInfo?.realName;
+            const userInfo = resolvedUsers.get(msg.user);
+            const realName = userInfo?.realName;
+            // Fallback chain: displayName → realName → "unknown"
+            // (previously fell back to raw Slack user ID, which is not a display name)
+            const displayName = userInfo?.displayName || realName || "unknown";
 
            const track: Track = {
              id: videoId,

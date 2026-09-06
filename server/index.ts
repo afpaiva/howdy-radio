@@ -117,7 +117,7 @@ function handleRequest(req: any, res: any): void {
     return;
   }
 
-  // Handle GET /auth/me — verify session cookie and return user info
+  // Handle GET /auth/me — verify JWT session cookie and return user identity
   if (req.method === "GET" && req.url === "/auth/me") {
     handleAuthMe(req, res);
     return;
@@ -258,35 +258,41 @@ async function handleAuthLogin(req: any, res: any): Promise<void> {
 }
 
 /**
+ * Extract the session token from the Cookie header.
+ * Returns null if the cookie is absent.
+ */
+function getSessionToken(cookieHeader: string | undefined): string | null {
+  if (!cookieHeader) {
+    return null;
+  }
+  const match = cookieHeader.match(/(?:^|;\s*)session=([^;]+)/);
+  return match ? match[1] ?? null : null;
+}
+
+/**
  * Handle GET /auth/me.
- * Reads the session cookie, verifies the JWT, and returns the user's info.
- * Returns 401 if no valid session cookie is present.
+ * Verifies the JWT session cookie and returns the decoded user identity
+ * ({ email, name? }). Returns 401 if the token is missing or invalid.
  */
 function handleAuthMe(req: any, res: any): void {
-  const cookies = req.headers.cookie || "";
-  const sessionMatch = cookies.match(/session=([^;]+)/);
+  const token = getSessionToken(req.headers?.cookie);
 
-  if (!sessionMatch) {
+  if (!token) {
     res.writeHead(401, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "No session" }));
+    res.end(JSON.stringify({ error: "Not authenticated" }));
     return;
   }
 
-  const token = sessionMatch[1];
-
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { email: string; name?: string };
-
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      email: string;
+      name?: string;
+    };
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(
-      JSON.stringify({
-        email: decoded.email,
-        name: decoded.name,
-      })
-    );
+    res.end(JSON.stringify({ email: decoded.email, name: decoded.name }));
   } catch {
     res.writeHead(401, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: "Invalid session" }));
+    res.end(JSON.stringify({ error: "Invalid or expired token" }));
   }
 }
 
