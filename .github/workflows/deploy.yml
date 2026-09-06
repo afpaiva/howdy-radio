@@ -35,4 +35,5 @@ jobs:
             --region us-central1 \
             --allow-unauthenticated \
             --project afpaiva-dev \
+            --quiet \
             --set-build-env-vars VITE_WS_URL="${{ vars.VITE_WS_URL }}"
