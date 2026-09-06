@@ -27,14 +27,15 @@ import type {
 /**
  * Socket.io server URL.
  *
- * - Production: omitted — the single Bun process serves client + WS on the
- *   same origin, so `io()` connects to its own origin.
-  * - Dev: the Vite dev server (port 3003) is separate from the server
-  *   (port 3000 in .env), so we point at the server explicitly.
-  */
-const WS_URL: string | undefined = (import.meta as any).env.PROD
-  ? undefined
-  : ((import.meta as any).env.VITE_WS_URL ?? "http://localhost:3000");
+ * - Set `VITE_WS_URL` whenever the client is not served from the same origin
+ *   as the conductor (GitHub Pages, Vite dev server, etc.).
+ * - Dev fallback: `http://localhost:3000` if the var is unset.
+ * - Same-origin production (Bun serving `client/dist`): leave unset so
+ *   `io()` connects to the page origin.
+ */
+const WS_URL: string | undefined =
+  (import.meta as any).env.VITE_WS_URL ||
+  ((import.meta as any).env.PROD ? undefined : "http://localhost:3000");
 
 /** The merged playback state the UI consumes, or `null` while connecting. */
 export interface PlaybackHookResult {

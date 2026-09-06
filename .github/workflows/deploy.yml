@@ -1,0 +1,37 @@
+name: Deploy Client to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'client/**'
+  workflow_dispatch:
+
+# Necessary permissions to deploy to Cloud Run
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Google Auth
+        uses: google-github-actions/auth@v2
+        with:
+          service_account: 'github-actions-sa@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com'
+          workload_identity_provider: '${{ secrets.GCP_WIP }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy client-app \
+            --source ./client \
+            --region us-central1 \
+            --allow-unauthenticated \
+            --set-build-env-vars VITE_WS_URL="${{ vars.VITE_WS_URL }}"

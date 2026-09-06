@@ -4,10 +4,9 @@ import { fileURLToPath } from 'url';
 
 export default defineConfig({
   plugins: [react()],
+  base: '/howdy-radio/',
   server: {
     port: 3003,
-    // Proxy auth endpoints to the backend server (dev mode only).
-    // In production, the single Bun process serves both client and auth.
     proxy: {
       '/auth': {
         target: 'http://localhost:3000',
