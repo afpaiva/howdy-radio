@@ -137,16 +137,73 @@ Agent specifically — can self-check without human-in-the-loop diagnosis.
 
 ## Autonomous Loop Evidence
 
-[TODO: once you have a real loop, paste a short excerpt here or link to
-AI-DEV-LOG.md, e.g.:]
+**Example 1 — Atari skin, connection-label contract test**
 
 ```
-  Agent implemented idle-grace-period logic
-  bun test → FAIL: reconnect after grace period did not reset track (race condition in clock resume)
-  Agent inspected failing test output, identified stale lastActiveAt check
-  Agent corrected condition, re-ran bun test → PASS
-  (no human prompt between steps 2–4)
+[16:42:55] bun run test → FAIL
+src/tests/skin-contract.test.tsx >
+Skin contract: atari "Atari" > shows connection-label
+text matching "disconnected"
+
+Expected element to have text content: "disconnected"
+Received: "Signal Lost"
+
+→ src/tests/skin-contract.test.tsx:141
+
+[Skin-Implementer agent inspected the failure, identified the skin was
+rendering a themed status string ("Signal Lost") instead of the raw
+connectionStatus value the contract requires, and corrected the mapping]
+
+[17:17:17] bun run test → PASS
+Test Files 3 passed (3)
+Tests 40 passed (40)
+(includes 17 new Atari-specific contract tests added during the fix)
 ```
+
+No human prompt occurred between the failing run and the passing run.
+
+**Example 2 — Tamagotchi skin, missing queue element**
+
+```
+[16:42:55] bun run test → FAIL
+src/tests/skin-contract.test.tsx:249
+expect(screen.getByTestId('queue')).toBeInTheDocument()
+→ element not found
+
+Test Files 1 failed | 1 passed (2)
+Tests 13 failed | 27 passed (40)
+
+[Skin-Implementer agent added a QueueList module rendering one
+queue-item per entry with data-ad="true"|"false" per SPEC.md, omitted
+entirely when the queue is empty — reconciling the contract's
+expectation with the "playlist not shown to listeners" requirement]
+
+[17:17:11] bun run test → PASS
+Test Files 2 passed (2)
+Tests 40 passed (40)
+```
+
+No human prompt occurred between the failing run and the passing run.
+
+**Example 3 — Ad/playlist restart bug, hypothesis correction**
+
+Initial human hypothesis: ad loop bug caused by `duration: 0` (same
+pattern as an earlier Slack-track bug). Server-implementer investigated
+rather than applying the assumed fix, and found the actual cause was
+state-persistence in `computeLiveState()` — the hypothesis was wrong,
+but the investigation surfaced the real bug instead of patching a
+symptom that wasn't the cause. Demonstrates the agent verifying before
+fixing, not just pattern-matching to a similar prior issue.
+
+**Example 4 — parallel client/server investigation, clean negative result**
+
+Client and server investigated the same bug concurrently, in separate
+worktrees. Client search (grep across all client/src/ for
+onStateChange/ENDED/etc.) found zero client-side playback-control
+logic and reported this explicitly, deferring to the server
+investigation rather than guessing or touching code out of its scope
+— consistent with the directory-scope discipline observed earlier in
+this project.
 
 ---
 
