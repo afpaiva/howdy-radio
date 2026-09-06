@@ -113,6 +113,12 @@ function handleRequest(req: any, res: any): void {
     return;
   }
 
+  // Handle GET /auth/me — verify JWT session cookie and return user identity
+  if (req.method === "GET" && req.url === "/auth/me") {
+    handleAuthMe(req, res);
+    return;
+  }
+
   // Health check endpoint
   if (req.url?.startsWith("/health")) {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -244,6 +250,45 @@ async function handleAuthLogin(req: any, res: any): Promise<void> {
     console.error("Auth login error:", error);
     res.writeHead(500, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Internal server error" }));
+  }
+}
+
+/**
+ * Extract the session token from the Cookie header.
+ * Returns null if the cookie is absent.
+ */
+function getSessionToken(cookieHeader: string | undefined): string | null {
+  if (!cookieHeader) {
+    return null;
+  }
+  const match = cookieHeader.match(/(?:^|;\s*)session=([^;]+)/);
+  return match ? match[1] ?? null : null;
+}
+
+/**
+ * Handle GET /auth/me.
+ * Verifies the JWT session cookie and returns the decoded user identity
+ * ({ email, name? }). Returns 401 if the token is missing or invalid.
+ */
+function handleAuthMe(req: any, res: any): void {
+  const token = getSessionToken(req.headers?.cookie);
+
+  if (!token) {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Not authenticated" }));
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      email: string;
+      name?: string;
+    };
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ email: decoded.email, name: decoded.name }));
+  } catch {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Invalid or expired token" }));
   }
 }
 

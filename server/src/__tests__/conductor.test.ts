@@ -99,6 +99,44 @@ describe("Conductor - Bootstrap", () => {
     // The queue should contain the injected ads and music tracks
     expect(state.queue.some((t) => t.isAd)).toBe(true);
   });
+
+  test("onClientConnect after setPlaylist preserves queue with ads", async () => {
+    // Simulate server startup: setPlaylist is called before any client connects
+    const tracks = [mockTrack1, mockTrack2];
+    const ads = [mockAd];
+    conductor.setPlaylist(tracks, ads, 1);
+
+    // A client connecting should get a state with a populated queue
+    const state = await conductor.onClientConnect();
+
+    expect(state.queue.length).toBeGreaterThan(0);
+    expect(state.queue.some((t) => t.isAd)).toBe(true);
+  });
+
+  test("onClientConnect without setPlaylist still gets non-empty queue (seed fallback)", async () => {
+    // No setPlaylist() called — conductor should fall back to seed playlist
+    const state = await conductor.onClientConnect();
+
+    // Queue should be populated from seed tracks even without setPlaylist
+    expect(state.queue.length).toBeGreaterThan(0);
+  });
+
+  test("mock mode flow: seed playlist + ads + bootstrap yields populated queue", async () => {
+    // Simulate the server startup flow in mock mode (no credentials)
+    const { SeedPlaylist } = await import("../seed/playlist");
+    const tracks = SeedPlaylist.getMusicTracks();
+    const ads = SeedPlaylist.getAds();
+
+    conductor.setPlaylist(tracks, ads, 3);
+
+    // A client connecting should get a state with a populated queue including ads
+    const state = await conductor.onClientConnect();
+
+    expect(state.queue.length).toBeGreaterThan(0);
+    expect(state.queue.some((t) => t.isAd)).toBe(true);
+    expect(state.currentTrack).not.toBeNull();
+    expect(state.isPlaying).toBe(true);
+  });
 });
 
 describe("Conductor - Idle/Grace Period", () => {
