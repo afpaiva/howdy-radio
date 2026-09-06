@@ -127,7 +127,11 @@ export const neutralSkin: Skin = {
             </div>
             <ul className="neutral-queue-list" data-testid="queue">
               {queue.map((track, i) => (
-                <QueueRow key={track.videoId} track={track} index={i} />
+                <QueueRow
+                  key={`${track.videoId}-${i}`}
+                  track={track}
+                  index={i}
+                />
               ))}
             </ul>
           </section>

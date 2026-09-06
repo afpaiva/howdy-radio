@@ -353,6 +353,36 @@ export class Conductor {
   }
 
   /**
+   * Persist any track transition that has occurred since the last update.
+   *
+   * `computeLiveState()` is read-only — it returns a computed state but
+   * never writes it back to `this.state`. This means every tick recomputes
+   * the same transition from the original base position, sending
+   * `position: 0` forever after a track ends (causing the client player
+   * to repeatedly seek back to 0 and "restart" the same track).
+   *
+   * This method detects when the computed state's `currentTrack` differs
+   * from `this.state.currentTrack` (a track transition), and commits the
+   * full computed state — including the new track, position, queue, and
+   * `lastUpdated` — via `applyState()`. After committing, subsequent
+   * `computeLiveState()` calls compute position advances relative to the
+   * transition time, producing correct, advancing positions.
+   *
+   * Only track transitions are committed (not every position advance) to
+   * avoid freezing the clock — `lastUpdated` stays at the last
+   * `applyState()` time so `elapsed` accumulates correctly between calls.
+   */
+  advanceIfNeeded(): void {
+    if (this.state.clientCount === 0) return;
+
+    const computed = this.computeLiveState();
+
+    if (computed.currentTrack?.id !== this.state.currentTrack?.id) {
+      this.applyState(computed);
+    }
+  }
+
+  /**
    * Get client count.
    */
   getClientCount(): number {
