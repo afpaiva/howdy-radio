@@ -19,9 +19,13 @@ import { WsHandler } from "./src/ws/handler";
 import type { ServerConfig } from "./src/types";
 import jwt from "jsonwebtoken";
 
-// JWT secret — falls back to a random value if not set (sufficient for v1
-// stub auth; real SSO providers manage their own secrets in production)
-const JWT_SECRET = process.env.JWT_SECRET || Math.random().toString(36).slice(2);
+// JWT secret — reads from AUTH_JWT_SECRET in .env. Falls back to a random
+// value only if not configured (sufficient for v1 stub auth; real SSO
+// providers manage their own secrets in production).
+// NOTE: the env var must be AUTH_JWT_SECRET to match the .env file — using
+// a different name causes a new random secret on every server restart,
+// invalidating all previously issued session cookies.
+const JWT_SECRET = process.env.AUTH_JWT_SECRET ||"_secret_";
 const JWT_EXPIRES_IN = "24h";
 
 // Resolve the client dist directory (sibling of server/)

@@ -105,6 +105,27 @@ test.describe('Authentication gate', () => {
     // Login form should no longer be visible
     await expect(page.locator('input[type="email"]')).not.toBeVisible();
   });
+
+  test('refresh preserves session (no login form shown)', async ({ page }) => {
+    // Log in
+    await page.goto('/');
+    await page.fill('input[type="email"]', TEST_EMAIL);
+    await page.click('button:has-text("Sign in")');
+    await expect(page.locator('[data-testid="tune-in"]')).toBeVisible({
+      timeout: 15000,
+    });
+
+    // Refresh the page
+    await page.reload();
+
+    // Should NOT show the login form — should go straight to the app
+    await expect(page.locator('input[type="email"]')).not.toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.locator('[data-testid="tune-in"]')).toBeVisible({
+      timeout: 15000,
+    });
+  });
 });
 
 test.describe('Single-client playback', () => {

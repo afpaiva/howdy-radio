@@ -113,7 +113,7 @@ export function LoginGate({ onAuthenticated }: LoginGateProps): JSX.Element {
       <div className="howdy-bento-panel howdy-bento-panel--wide">
         <h1 className="howdy-panel-title">Howdy Radio</h1>
 
-         <form onSubmit={handleSubmit} className="howdy-login-form">
+        <form onSubmit={handleSubmit} className="howdy-login-form">
           <div className="howdy-form-field">
             <label htmlFor="email-input" className="howdy-form-label">
               Email
@@ -133,10 +133,6 @@ export function LoginGate({ onAuthenticated }: LoginGateProps): JSX.Element {
               We ask for your work email just to confirm you're part of the
               team. It isn't stored — it's only used to verify access.
             </p>
-            <p className="howdy-form-help howdy-form-help--note">
-              This authentication flow is just for the Dev Day Hackathon — it's
-              for illustrative purposes only.
-            </p>
           </div>
 
           {error && (
@@ -152,6 +148,10 @@ export function LoginGate({ onAuthenticated }: LoginGateProps): JSX.Element {
           >
             {isLoading ? "Signing in…" : "Sign in"}
           </button>
+          <p className="howdy-form-help howdy-form-help--note">
+            As we don't have access to the Google OAuth credentials,
+            this auth flow just fake the company email matching in the server.
+          </p>
         </form>
       </div>
     </div>
