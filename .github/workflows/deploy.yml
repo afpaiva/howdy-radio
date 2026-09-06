@@ -34,5 +34,5 @@ jobs:
             --source ./client \
             --region us-central1 \
             --allow-unauthenticated \
-            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --project afpaiva-dev \
             --set-build-env-vars VITE_WS_URL="${{ vars.VITE_WS_URL }}"
