@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 export default defineConfig({
   plugins: [react()],
-  base: '/howdy-radio/',
+  base: '/',
   server: {
     port: 3003,
     proxy: {
