@@ -37,12 +37,14 @@
 * Introduced a `skin-tester` agent to create tests before merging the branches from the 5 agents.
 * Merged the `skin-tester` tests into the other agents and let them fix issues until all tests passed.
 * Finally, opened the 5 PRs targeting main. Got 2 merge simple conflicts on server implementation.
-* Using Gemini and a Howdy website section screenshot, it was generated a detailed DESIGN_DIRECTIONS.md to guide another agent that will work on the rest of the app styles. Added logo and adjusted a few styles prompting and manually.
+* Using Gemini and a Howdy website section screenshot, it was generated a detailed DESIGN_DIRECTIONS.md to guide another agent that will work on the rest of the app styles.
+* Added logo and adjusted a few styles prompting and manually.
 * Prompted to update the Neutral skin to incorporate a clean, structured design using the global design system.
 
 ## Day 4
 
-* Worked on the external resources: - Slack channel, bot token, YouTube keys, etc.
+* Worked on the external resources:
+  - Slack channel, bot token, YouTube keys, etc.
 * Wrote server apis integrations prompts and more skins improvements to run in parallel in the next iteration.
 * Reviewed the "queue shown in UI" divergence flagged by alignment-reviewer. Decided to keep it and update SPEC.md instead of reverting — the feature added real UX value across all 5 skins, and the existing contract tests already validated it correctly.
 * Client bug reports (queue flicker, refresh reset) were observed while testing the new client against the OLD (pre-integration) server, before merge — re-verify both after merging fix/client-player and fix/server-integration, since some symptoms may be resolved by the server-side protocol fixes alone.
@@ -56,7 +58,10 @@
 
 ## Day 5
 
-* Ran client and server investigations in parallel for the "restarts from beginning" bug. Client (skeleton-implementer) grepped the entire codebase for state-change handlers, found none, and correctly concluded the client only reacts passively to server state — reported back a clean negative result instead of guessing at a fix.
-* Server investigation found the actual root cause differed from the initial hypothesis: ad "plays 1s then loops" was NOT a duration-zero bug (durations were already correctly assigned) — the real cause was computeLiveState() computing track transitions but never persisting them via applyState(), causing every tick to recompute from stale state. Separately, bootstrapFresh() included the current track inside its own generated queue, causing an occasional replay of the same track via queue.shift(). Both fixed independently.
+* Ran client and server investigations in parallel for the "restarts from beginning" bug.
+* Client (skeleton-implementer) grepped the entire codebase for state-change handlers, found none, and correctly concluded the client only reacts passively to server state — reported back a clean negative result instead of guessing at a fix.
+* Server investigation found the actual root cause differed from the initial hypothesis: ad "plays 1s then loops" was NOT a duration-zero bug (durations were already correctly assigned) — the real cause was computeLiveState() computing track transitions but never persisting them via applyState(), causing every tick to recompute from stale state.
+* Separately, bootstrapFresh() included the current track inside its own generated queue, causing an occasional replay of the same track via queue.shift(). Both fixed independently.
 * Bonus scope addition accepted: real YouTube video titles now resolved for Slack-sourced tracks (previously showed raw URLs), bundled into the same session alongside the max-track-duration cap (12 min) requested earlier.
+* Redesigned playback queue from "full rebuild per transition" to a fixed-size rolling window (remove-front, append-back) backed by a separate Library pool (music + ads), after repeated bugs (replay/reset) traced back to full-queue regeneration on every track-end. This is an architectural change, not a bugfix — updated SPEC.md §Playlist Management, §Ads, and §Playback Queue accordingly.
 
