@@ -73,7 +73,7 @@ export function LoginGate({ onAuthenticated }: LoginGateProps): JSX.Element {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${(import.meta as any).env.VITE_WS_URL}/auth/login`, {
+      const res = await fetch(`${import.meta.env.VITE_WS_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
