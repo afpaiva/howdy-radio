@@ -65,3 +65,8 @@
 * Bonus scope addition accepted: real YouTube video titles now resolved for Slack-sourced tracks (previously showed raw URLs), bundled into the same session alongside the max-track-duration cap (12 min) requested earlier.
 * Redesigned playback queue from "full rebuild per transition" to a fixed-size rolling window (remove-front, append-back) backed by a separate Library pool (music + ads), after repeated bugs (replay/reset) traced back to full-queue regeneration on every track-end. This is an architectural change, not a bugfix — updated SPEC.md §Playlist Management, §Ads, and §Playback Queue accordingly.
 
+## Day 6
+
+* Deployed the server on Lightsail and the client on Firebase Host. Implemented GitHub Actions for the client deployment from the main branch.
+* While listening to the deployed Howdy Radio and having fun with that, updated the SPEC.md, SYSTEM.md and AGENTS.md to align the last decision changes with the project documentation. Did this to avoid regressions in the next intended iteration: "skins improvement".
+* Ran alignment-reviewer agent and got irrelevant issues this time.

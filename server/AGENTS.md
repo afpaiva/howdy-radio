@@ -12,11 +12,14 @@ project-wide context, see `/docs/SPEC.md` and `/docs/SYSTEM.md`.
 ## Purpose
 
 Bun backend for Howdy Radio. Single process that:
-1. Serves the static client build (`/client/dist`)
-2. Exposes the WebSocket "conductor" endpoint on the same port
+1. Exposes the WebSocket "conductor" endpoint
+2. Serves HTTP health/auth endpoints (`/health`, `/auth/*`)
 3. Fetches/maintains the playlist from Slack
 4. Fetches/injects ads from YouTube Shorts
 5. Owns the authoritative playback timeline
+
+**Production**: Frontend hosted separately on Firebase Hosting.
+**Dev mode**: Can serve static files from `client/dist` for local testing.
 
 ## Structure
 
@@ -29,7 +32,7 @@ auth/ -> AuthProvider interface + StubEmailProvider
 ws/ -> WebSocket message handling, broadcast
 seed/ -> mock playlist JSON for MOCK_MODE
 tests/ -> bun test unit tests
-index.ts -> Bun.serve() entrypoint
+index.ts -> http.createServer() + Socket.io entrypoint (WebSocket + HTTP auth/health; static serving only in dev)
 
 
 ## Hard rules (do not violate)
@@ -75,7 +78,7 @@ Uses Bun's built-in test runner — no separate test framework.
 ### What to test here
 - Timeline/timestamp math (track position calculation, grace period
   expiry, idle transitions) — pure logic, no network needed.
-- Ad distribution algorithm (segment-based random placement).
+- Ad distribution algorithm (segment-based injection at bootstrap, 50/50 probabilistic refill during playback).
 - Slack link extraction + dedup by video ID.
 - Shorts duration filter (≤60s).
 - Bootstrap lock behavior under concurrent "first connect" simulation.
@@ -105,7 +108,7 @@ E2E synchronization behavior (two browsers, same track) is tested from
   - Bun automatically loads `.env`, so don't use `dotenv`.
 
 ### APIs
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
+- Uses Node `http.createServer()` with Socket.io for WebSocket support. Don't use `express`.
 - Uses **Socket.io** (not raw `WebSocket`) for the real-time layer —
   deliberate choice for connect/disconnect event handling and broadcast
   API simplicity. See SPEC.md Key Technical Decisions.
@@ -113,7 +116,7 @@ E2E synchronization behavior (two browsers, same track) is tested from
 - `Bun.$`ls`` instead of `execa`.
 
 ### Frontend note
-This project uses **Vite** for the client (see `/client/AGENTS.md`), not
-Bun's HTML-import bundler. Do not suggest replacing Vite with
-`Bun.serve()` HTML imports — that decision was already made and
-documented in SPEC.md.
+Frontend is deployed separately to Firebase Hosting (see `/client/AGENTS.md`).
+This server only handles WebSocket + HTTP auth/health — no static file serving in production.
+Dev mode: static file serving from `client/dist` is available for local testing.
+Client connects via `VITE_WS_URL` env var at build time (points to this server's URL).

@@ -94,43 +94,38 @@ and was intentionally kept across all 5 skins.
 ### Ads
 
 - Ads are sourced into `adsLibrary` exactly as before: the `ADS_COUNT` most recent YouTube Shorts (duration ≤ 60s) from `HOWDY_YOUTUBE_CHANNEL_ID`, refreshed hourly.
-- **Insertion changed**: ads are no longer distributed via a segment-based algorithm over a full pre-built queue.  
-  Instead, each time a track is appended to the rolling queue (see §Playback Queue), there is an `AD_APPEND_PROBABILITY` (default: 0.2, i.e. ~1-in-5)  
-  chance the appended item is drawn from `adsLibrary` instead of `musicLibrary`.  
-  This keeps ad density roughly proportional to a sparse, non-clustered distribution without needing to know the full queue shape in advance.
+- **Insertion at bootstrap**: ads are distributed across the initial queue using a segment-based algorithm — the queue is divided into `ADS_COUNT` equal segments and one ad is inserted at a random position within each segment.
+- **Insertion during playback (refill)**: when a track ends and the queue is refilled, each new item has a 50% chance of being drawn from `adsLibrary` vs `musicLibrary` (hardcoded, not configurable). The chosen item is picked randomly from the pool, excluding tracks already in the queue and the current track.
 - Ads always play from the start (no random start position — unchanged from the original spec).
 
-### Playback Queue (Rolling, Fixed-Size)
+### Playback Queue (Sliding Window, Fixed-Size)
 
-The queue is a rolling window into the Library, not a fully regenerated list per transition.
+The queue is a sliding window of upcoming tracks, maintained incrementally rather than rebuilt on each transition.
 
-- **Target size**: `QUEUE_TARGET_SIZE` (default: 15). If the combined Library (music + ads currently eligible) has fewer available items than this,  
-  the queue shrinks to fit — specifically, capped at `min(QUEUE_TARGET_SIZE, libraryEligibleCount - 1)`,  
-  guaranteeing at least one item is always excluded so a track can't be immediately re-added to itself.
-- **On track end (normal transition)**: remove the finished track from the front of the queue,  
-  and append exactly one new item to the end.  
-  This does NOT rebuild or re-inject ads into the rest of the queue — only the single new item is chosen.
-- **Choosing the appended item**:  
-  1. Randomly decide music vs. ad, weighted by `AD_APPEND_PROBABILITY`.  
+- **Maximum size**: `MAX_QUEUE_SIZE = 15` (hardcoded). The queue is capped at this size during bootstrap and refill operations.
+- **Initial bootstrap**: a queue of up to `MAX_QUEUE_SIZE` items is built from the music library, with ads injected at segment boundaries (one ad per `ADS_COUNT` segment, placed at a random position within each segment). The currently selected track is excluded from the queue to prevent immediate replay.
+- **On track end (normal transition)**: remove the finished track from the front of the queue, and append exactly one new item to the end. This does NOT rebuild or re-inject ads into the rest of the queue — only the single new item is chosen.
+- **Choosing the appended item (refill)**:
+  1. Randomly decide music vs. ad with 50% probability (hardcoded).
   2. From the chosen pool (`musicLibrary` or `adsLibrary`), pick randomly, excluding:  
      (a) anything currently in the queue, and  
-     (b) the last `RECENTLY_PLAYED_HISTORY_SIZE` (default: 2) tracks that just finished playing.  
-  3. If no eligible item remains after exclusions (small Library edge case), fall back to allowing a repeat —  
-     but never the single most-recently-played track.
-- This replaces the previous "rebuild full queue with segment-based ad injection" approach used during idle/bootstrap.
+     (b) the current track.
+  3. If the chosen pool is exhausted, fall back to the other pool with the same exclusions.
+  4. If both pools are exhausted, the queue simply shrinks — no repeat prevention beyond current queue + current track.
+- The queue size naturally decreases when the library has fewer than `MAX_QUEUE_SIZE` eligible items.
 
 ### Playback Bootstrap & Idle Behavior
 
 - If zero clients are connected, the server halts the playback clock (no CPU/broadcast waste)  
   and stores `{ trackId, position, disconnectedAt: timestamp }`.
-- **On next connection (any connection)**:  
-  1. Compute `elapsed = now - disconnectedAt`.  
+- **On next connection (any connection)**:
+  1. Compute `elapsed = now - disconnectedAt`.
   2. If within `RECONNECT_GRACE_PERIOD_MINUTES` **and** the current track has enough remaining duration:  
      resume at `position + elapsed`, resuming the broadcast clock — the queue itself is untouched  
-     (rolling queue persists across the idle gap).  
+     (sliding window queue persists across the idle gap).
   3. Otherwise (grace period expired, or not enough time left): treat as a fresh bootstrap —  
-     refresh the Library from Slack/YouTube, build a new rolling queue of up to `QUEUE_TARGET_SIZE` items,  
-     pick a random starting track and random position within it (bootstrap only — subsequent transitions never use random position).  
+     refresh the Library from Slack/YouTube, build a new sliding window queue of up to `MAX_QUEUE_SIZE` items,  
+     pick a random starting track and random position within it (bootstrap only — subsequent transitions never use random position).
   4. Concurrent connections during this computation resolve to the same result via the existing in-process bootstrap lock.
 - New clients joining while already-connected clients exist always sync to the current live position  
   (never restart, never trigger a queue rebuild).
@@ -152,25 +147,34 @@ The queue is a rolling window into the Library, not a fully regenerated list per
 /docs        -> SPEC.md, SYSTEM.md, AI-DEV-LOG.md
 ```
 
-### Deployment Model
+### Deployment Model (Production: Split Deployment)
 
-- Single Bun process serves:  
-  - Static client build (`/client/dist`)  
-  - WebSocket endpoint (same port/process)
-- Target: persistent Node/Bun hosting (Render, Railway, Fly.io) — not serverless.
-- Single deployment URL.
+- **WebSocket conductor**: Bun process on persistent VM (Railway, Render, Fly.io, or custom VM)
+  - Serves WebSocket endpoint + HTTP health/auth endpoints (`/health`, `/auth/*`)
+  - No static file serving in production
+- **Frontend**: Static files on Firebase Hosting (or any static host)
+  - Built via `vite build` → `client/dist`
+  - Configured with `VITE_WS_URL` pointing to conductor VM
+- **Communication**: Cross-origin WebSocket (Socket.io)
+  - Conductor CORS allows all origins (`origin: "*"`) — restrict to Firebase URL in production if desired
+  - Client connects via `io(VITE_WS_URL)`
+- No single deployment URL — separate origins for client and conductor
+- **Dev mode**: Single process can serve both (static files from `client/dist` + WebSocket) for local testing
 
 ### Communication
 
-- **HTTP**: OAuth callback, static assets, health checks.
+- **HTTP**: OAuth callback, static assets (dev only), health checks (`/health`), auth endpoints (`/auth/login`, `/auth/me`).
 - **Socket.io** (over WebSocket): Real-time playback state sync (current track, position, queue, control events), broadcast via `io.emit()`.
+  - **Production**: Cross-origin — client (Firebase) connects to conductor (VM) via `VITE_WS_URL`
+  - Conductor CORS: `origin: "*"` (configure Firebase URL explicitly for production hardening)
+  - Cookie-based auth: `SameSite=Lax` works for top-level login POST; `Secure` required for cross-origin in production
 
 ### Data Flow
 
 1. Server polls Slack channel → extracts YouTube links → builds playlist.  
 2. Server fetches YouTube Shorts for ads → inserts randomly into queue.  
 3. Server schedules playback (tracks + ads) → maintains authoritative timeline.  
-4. Client connects via WebSocket → receives current state → initializes YouTube IFrame Player at correct timestamp.  
+4. Client connects via WebSocket to `VITE_WS_URL` → receives current state → initializes YouTube IFrame Player at correct timestamp.  
 5. Server broadcasts `tick`/state events → clients stay synchronized.  
 6. Late joiners receive current state → sync to live position (no restart from beginning).
 
@@ -216,16 +220,16 @@ Skins are loaded dynamically; switching skins does not reset playback state.
 | Bun for server                             | Native WebSocket, fast startup, TypeScript support, single binary deployment.                        |
 | YouTube IFrame Player API                  | Avoids copyright/hosting issues; leverages YouTube's CDN and player logic.                           |
 | Server-authoritative timeline              | Guarantees synchronization; simplifies late-join logic.                                              |
-| Single-process static + WS                 | Simplifies deployment (one URL, one process, no CORS/cookie complexities).                           |
+| Split deployment (Firebase static + VM conductor) | Decouples scaling: static CDN (Firebase) for frontend, persistent VM for stateful WebSocket conductor; avoids cold-starts on conductor; Firebase handles global edge caching. No single deployment URL — client connects via `VITE_WS_URL`. |
 | Slack bot token polling                    | Simpler than Events API for periodic playlist refresh; sufficient for channel-scoped link extraction.|
 | JSON seed for mock mode                    | Zero-config local dev; CI-friendly.                                                                  |
 | AuthProvider interface                     | Allows swapping auth mechanisms without touching app logic.                                           |
 | Skin interface                             | Decouples presentation from playback logic; easy to add themes.                                      |
 | YouTube Data API for ads                   | Reuses existing YouTube integration; Shorts are native ad format.                                    |
 | Socket.io over raw WebSocket               | Simplified connect/disconnect event handling and broadcast API. Note: the grace-period reconnection logic itself is a stateless global timestamp calculation (see Playback Bootstrap & Idle Behavior), not tied to per-client session identity — Socket.io is used for API convenience, not for its built-in session resumption. |
-| Library as separate pool from live queue   | Decouples "what's available" (refreshed periodically) from "what's queued now" (a stable rolling window) — avoids full queue reconstruction on every track-end, which previously caused replay/reset bugs. |
-| Rolling fixed-size queue (remove-front, append-back) | Simpler, cheaper transition logic than full rebuild + re-injection; naturally avoids near-term repetition via queue+recently-played exclusion. |
-| Probabilistic ad append vs. segment-based injection | Keeps ad density roughly proportional to `AD_APPEND_PROBABILITY` without needing to plan ad positions across a queue that's now continuously rolling rather than fixed. |
+| Library as separate pool from live queue   | Decouples "what's available" (refreshed periodically) from "what's queued now" (a stable sliding window) — avoids full queue reconstruction on every track-end, which previously caused replay/reset bugs. |
+| Sliding window queue (remove-front, append-back) | Simpler, cheaper transition logic than full rebuild + re-injection; naturally avoids near-term repetition via queue+current-track exclusion. |
+| Segment-based ad injection at bootstrap + 50/50 probabilistic refill | Segment-based injection distributes ads evenly across initial queue; 50/50 refill keeps ad density proportional without configurable parameters or recently-played history tracking. |
 
 ---
 
@@ -257,6 +261,7 @@ Skins are loaded dynamically; switching skins does not reset playback state.
 
 | Variable                         | Purpose                                                                               |
 |---------------------------------- |--------------------------------------------------------------------------------------|
+| `VITE_WS_URL`                    | WebSocket server URL for client (production: conductor VM URL; dev: `http://localhost:3001`) |
 | `YOUTUBE_API_KEY`                | YouTube Data API v3 access, for fetching channel Shorts                               |
 | `HOWDY_YOUTUBE_CHANNEL_ID`       | Source channel for ads                                                                |
 | `ADS_COUNT`                      | Number of recent Shorts to rotate as ads (default: 3)                                 |
