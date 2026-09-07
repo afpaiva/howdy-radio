@@ -51,7 +51,7 @@ export function LoginGate({ onAuthenticated }: LoginGateProps): JSX.Element {
   async function checkSession(): Promise<void> {
     setIsChecking(true);
     try {
-      const res = await fetch("/auth/me", {
+      const res = await fetch(`${import.meta.env.VITE_WS_URL}/auth/me`, {
         credentials: "include",
       });
       if (res.ok) {
