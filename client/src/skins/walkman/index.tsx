@@ -267,9 +267,9 @@ function PositionReadout({
 function Queue({ queue }: { queue: PlaybackState["queue"] }): ReactElement {
   return (
     <ol className="walkman-queue" data-testid="queue" aria-label="Up next">
-      {queue.map((track) => (
+      {queue.map((track, i) => (
         <li
-          key={track.videoId}
+          key={`${track.videoId}-${i}`}
           className="walkman-queue-item"
           data-testid="queue-item"
           data-ad={track.isAd ? "true" : "false"}

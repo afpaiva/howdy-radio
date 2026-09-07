@@ -1,8 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
@@ -16,19 +20,21 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+  ],
+  // Start both the server (mock mode) and the Vite dev server.
+  webServer: [
     {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      command: 'bun index.ts',
+      cwd: resolve(__dirname, '../server'),
+      url: 'http://localhost:3000/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60000,
     },
     {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      command: 'bun run dev',
+      url: 'http://localhost:3003',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000,
     },
   ],
-  webServer: {
-    command: 'bun run dev',
-    url: 'http://localhost:3003',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
 });

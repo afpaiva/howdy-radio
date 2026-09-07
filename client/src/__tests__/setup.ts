@@ -1,21 +1,14 @@
-import { vi } from 'vitest';
+import { vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { JSDOM } from 'jsdom';
 
-// Mock window.document for React Testing Library
-const mockDocument = new JSDOM('', { url: 'http://localhost' }).window.document;
+// The Vitest jsdom environment (see vitest.config.ts, `environment: 'jsdom'`)
+// already provides a fully functional `window` + `document`. Do NOT replace
+// them with a *separate* JSDOM instance here: doing so yields a document that
+// React Testing Library renders into but that `screen` queries against the
+// environment's own document — which is why every render assert returned an
+// empty `<body />`. Keep the rest of the small surface-area mocks below.
 
-// Mock window and global for Vitest compatibility
-Object.defineProperty(window, 'document', {
-  writable: true,
-  value: mockDocument,
-});
-
-Object.defineProperty(global, 'document', {
-  writable: true,
-  value: mockDocument,
-});
 
 // Mock window.scrollTo
 Object.defineProperty(window, 'scrollTo', {
@@ -90,7 +83,7 @@ Object.defineProperty(window, 'localStorage', {
 });
 
 // Cleanup after each test
-vi.beforeEach(() => {
+beforeEach(() => {
   cleanup();
   vi.clearAllMocks();
 });

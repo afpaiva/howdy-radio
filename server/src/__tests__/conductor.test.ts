@@ -44,7 +44,9 @@ describe("Conductor - Bootstrap", () => {
     }
   });
 
-  test("bootstrap with explicit tracks uses provided playlist", () => {
+  test("bootstrap with explicit tracks uses provided playlist", async () => {
+    // Connect a client so clientCount > 0 (allows live state computation)
+    await conductor.onClientConnect();
     const tracks = [mockTrack1, mockTrack2];
     const state = conductor.bootstrapFresh(tracks);
 
@@ -59,6 +61,114 @@ describe("Conductor - Bootstrap", () => {
     expect(state.isPlaying).toBe(false);
     expect(state.currentTrack).toBeNull();
     expect(state.position).toBe(0);
+  });
+
+  test("bootstrap uses random start position by default", async () => {
+    await conductor.onClientConnect();
+    const state = conductor.bootstrapFresh([mockTrack1]);
+
+    // Position should be within the track (could be random, including 0)
+    expect(state.position).toBeGreaterThanOrEqual(0);
+    expect(state.position).toBeLessThan(mockTrack1.duration);
+  });
+
+  test("bootstrap with useRandomStart=false always starts at position 0", async () => {
+    await conductor.onClientConnect();
+    
+    // Run multiple times to verify it's always 0
+    for (let i = 0; i < 50; i++) {
+      const state = conductor.bootstrapFresh([mockTrack1], false);
+      expect(state.position).toBe(0);
+      expect(state.currentTrack?.id).toBe(mockTrack1.id);
+    }
+  });
+
+  test("bootstrapFresh preserves existing queue (Up Next stays populated)", async () => {
+    await conductor.onClientConnect();
+    
+    // Set up a playlist with ads, which populates the queue
+    const tracks = [mockTrack1, mockTrack2, { ...mockTrack1, id: "v3" }];
+    const ads = [{ ...mockAd, id: "ad1" }];
+    conductor.setPlaylist(tracks, ads, 1);
+    
+    // Bootstrap with a specific track — this should NOT wipe the queue
+    const state = conductor.bootstrapFresh([mockTrack1]);
+    
+    // Queue should still be populated (not empty)
+    expect(state.queue.length).toBeGreaterThan(0);
+    // The queue should contain the injected ads and music tracks
+    expect(state.queue.some((t) => t.isAd)).toBe(true);
+  });
+
+  test("onClientConnect after setPlaylist preserves queue with ads", async () => {
+    // Simulate server startup: setPlaylist is called before any client connects
+    const tracks = [mockTrack1, mockTrack2];
+    const ads = [mockAd];
+    conductor.setPlaylist(tracks, ads, 1);
+
+    // A client connecting should get a state with a populated queue
+    const state = await conductor.onClientConnect();
+
+    expect(state.queue.length).toBeGreaterThan(0);
+    expect(state.queue.some((t) => t.isAd)).toBe(true);
+  });
+
+  test("onClientConnect without setPlaylist still gets non-empty queue (seed fallback)", async () => {
+    // No setPlaylist() called — conductor should fall back to seed playlist
+    const state = await conductor.onClientConnect();
+
+    // Queue should be populated from seed tracks even without setPlaylist
+    expect(state.queue.length).toBeGreaterThan(0);
+  });
+
+  test("setPlaylist during playback excludes current track from queue (no replay)", async () => {
+    // Regression: setPlaylist() during live playback should not put the
+    // current track back into the queue, which would cause it to replay
+    // when it ends (especially problematic with single-track playlists
+    // where the same track would play forever).
+    // With the sliding-window fix, setPlaylist() only updates the library
+    // and preserves the existing queue — it does NOT reshuffle.
+    const track1: Track = { id: "t1", title: "Track 1", duration: 300, isAd: false };
+    const track2: Track = { id: "t2", title: "Track 2", duration: 300, isAd: false };
+
+    await conductor.onClientConnect();
+    conductor.setPlaylist([track1, track2], [], 3);
+
+    // Bootstrap picks a random track
+    conductor.bootstrapFresh(undefined, false);
+
+    const state1 = conductor.getCurrentState();
+    const currentId = state1.currentTrack?.id;
+
+    // Current track should NOT be in the queue
+    expect(state1.queue.some((t) => t.id === currentId)).toBe(false);
+
+    // Calling setPlaylist again during playback (e.g. library refresh)
+    // should preserve the existing queue, not reshuffle it.
+    conductor.setPlaylist([track1, track2], [], 3);
+
+    const state2 = conductor.getCurrentState();
+    // After refresh, current track should STILL not be in queue
+    expect(state2.queue.some((t) => t.id === currentId)).toBe(false);
+    // Current track should still be the same (setPlaylist doesn't change it)
+    expect(state2.currentTrack?.id).toBe(currentId);
+  });
+
+  test("mock mode flow: seed playlist + ads + bootstrap yields populated queue", async () => {
+    // Simulate the server startup flow in mock mode (no credentials)
+    const { SeedPlaylist } = await import("../seed/playlist");
+    const tracks = SeedPlaylist.getMusicTracks();
+    const ads = SeedPlaylist.getAds();
+
+    conductor.setPlaylist(tracks, ads, 3);
+
+    // A client connecting should get a state with a populated queue including ads
+    const state = await conductor.onClientConnect();
+
+    expect(state.queue.length).toBeGreaterThan(0);
+    expect(state.queue.some((t) => t.isAd)).toBe(true);
+    expect(state.currentTrack).not.toBeNull();
+    expect(state.isPlaying).toBe(true);
   });
 });
 
@@ -146,6 +256,9 @@ describe("Conductor - Live State Computation", () => {
   });
 
   test("live state advances position over time", async () => {
+    // Set up with a client connected so live state computation runs
+    await conductor.onClientConnect();
+
     // Bootstrap with a known track
     const initialState = conductor.bootstrapFresh([mockTrack1]);
     expect(initialState.isPlaying).toBe(true);
@@ -178,6 +291,249 @@ describe("Conductor - Live State Computation", () => {
     expect(state2.currentTrack?.id).toBe(state1.currentTrack?.id);
     expect(state2.position).toBeGreaterThan(position1);
     expect(conductor.getClientCount()).toBe(2);
+  });
+
+  test("track advances from queue without random start position", async () => {
+    // Use a track with a very short duration to trigger transition quickly
+    const shortTrack: Track = {
+      id: "short1",
+      title: "Short Track",
+      duration: 1,
+      isAd: false,
+    };
+    const nextTrack: Track = {
+      id: "next1",
+      title: "Next Track",
+      duration: 300,
+      isAd: false,
+    };
+
+    await conductor.onClientConnect();
+    // Set playlist to [nextTrack] only (shortTrack is not in the playlist,
+    // so when the queue is exhausted, bootstrapFresh picks from available tracks)
+    conductor.setPlaylist([nextTrack], [], 3);
+
+    // Bootstrap with shortTrack (not in the playlist, so queue is empty after it ends)
+    conductor.bootstrapFresh([shortTrack]);
+
+    // Wait for the short track to end (1 second) plus a buffer
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+
+    const state = conductor.getCurrentState();
+    // Queue was empty, so bootstrapFresh(false) picks nextTrack from available playlist
+    expect(state.currentTrack?.id).toBe(nextTrack.id);
+    // Next track should start at position 0 (no random start)
+    expect(state.position).toBe(0);
+  });
+
+  test("current track is excluded from queue after bootstrap (no replay on transition)", async () => {
+    const track1: Track = { id: "t1", title: "Track 1", duration: 1, isAd: false };
+    const track2: Track = { id: "t2", title: "Track 2", duration: 300, isAd: false };
+    const track3: Track = { id: "t3", title: "Track 3", duration: 300, isAd: false };
+
+    await conductor.onClientConnect();
+    conductor.setPlaylist([track1, track2, track3], [], 3);
+
+    conductor.bootstrapFresh(undefined, false);
+
+    const state = conductor.getCurrentState();
+
+    // The current track should NOT be in the queue (otherwise it could replay)
+    expect(state.queue.some((t) => t.id === state.currentTrack?.id)).toBe(false);
+    // Queue should have 2 items (3 tracks minus 1 current)
+    expect(state.queue.length).toBe(2);
+  });
+
+  test("track advances linearly through queue without replaying", async () => {
+    const track1: Track = { id: "t1", title: "Track 1", duration: 1, isAd: false };
+    const track2: Track = { id: "t2", title: "Track 2", duration: 1, isAd: false };
+    const track3: Track = { id: "t3", title: "Track 3", duration: 1, isAd: false };
+
+    await conductor.onClientConnect();
+    conductor.setPlaylist([track1, track2, track3], [], 3);
+
+    // Bootstrap with useRandomStart=false so we know which track is current
+    conductor.bootstrapFresh(undefined, false);
+
+    const initialState = conductor.getCurrentState();
+    const currentId = initialState.currentTrack?.id;
+
+    // First queue item should NOT be the current track
+    const nextId = initialState.queue[0]?.id;
+    expect(nextId).not.toBe(currentId);
+
+    // Wait for track 1 to end
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+    const state2 = conductor.getCurrentState();
+    expect(state2.currentTrack?.id).not.toBe(currentId);
+    expect(state2.currentTrack?.id).toBe(nextId);
+
+    // Wait for track 2 to end
+    const nextId2 = state2.queue[0]?.id;
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+    const state3 = conductor.getCurrentState();
+    expect(state3.currentTrack?.id).not.toBe(currentId);
+    expect(state3.currentTrack?.id).not.toBe(nextId);
+    expect(state3.currentTrack?.id).toBe(nextId2);
+  });
+
+  test("queue advances linearly through all items without replay", async () => {
+    // Use short-duration tracks and set state directly (bypassing random
+    // bootstrap selection) to deterministically verify queue advancement.
+    const track1: Track = { id: "t1", title: "Track 1", duration: 1, isAd: false };
+    const track2: Track = { id: "t2", title: "Track 2", duration: 1, isAd: false };
+    const track3: Track = { id: "t3", title: "Track 3", duration: 1, isAd: false };
+    const track4: Track = { id: "t4", title: "Track 4", duration: 1, isAd: false };
+    const track5: Track = { id: "t5", title: "Track 5", duration: 1, isAd: false };
+
+    await conductor.onClientConnect();
+
+    // Set state directly: track1 is current, queue = [t2, t3, t4, t5]
+    const now = Math.floor(Date.now() / 1000);
+    conductor["state"] = {
+      currentTrack: track1,
+      position: 0,
+      queue: [track2, track3, track4, track5],
+      isPlaying: true,
+      lastUpdated: now,
+      clientCount: 1,
+    };
+
+    const trackIds: string[] = ["t1"];
+
+    // Each 1s track ends after ~1.5s, shifting through the queue
+    for (let i = 0; i < 4; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const state = conductor.getCurrentState();
+      trackIds.push(state.currentTrack?.id ?? "null");
+    }
+
+    // Each transition should produce a DIFFERENT track (queue shift path)
+    for (let i = 1; i < trackIds.length; i++) {
+      expect(trackIds[i]).not.toBe(trackIds[i - 1]);
+    }
+
+    // All 5 tracks should be seen
+    expect(new Set(trackIds).size).toBe(5);
+    expect(trackIds).toEqual(["t1", "t2", "t3", "t4", "t5"]);
+  }, 15000);
+
+  test("ad in queue plays for full duration before advancing", async () => {
+    const musicTrack: Track = { id: "t1", title: "Track 1", duration: 1, isAd: false };
+    const adTrack: Track = { id: "ad1", title: "Ad", duration: 10, isAd: true };
+    const nextMusic: Track = { id: "t2", title: "Track 2", duration: 300, isAd: false };
+
+    await conductor.onClientConnect();
+
+    // Directly set state: music track (1s) is current, ad (10s) is next in queue
+    const now = Math.floor(Date.now() / 1000);
+    conductor["state"] = {
+      currentTrack: musicTrack,
+      position: 0,
+      queue: [adTrack, nextMusic],
+      isPlaying: true,
+      lastUpdated: now,
+      clientCount: 1,
+    };
+
+    // Wait for music track to end (1s + buffer)
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const state1 = conductor.getCurrentState();
+    // Should be on the ad
+    expect(state1.currentTrack?.isAd).toBe(true);
+    expect(state1.currentTrack?.id).toBe("ad1");
+
+    // Wait 3 more seconds (ad is 10s — should still be playing)
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const state2 = conductor.getCurrentState();
+    // Still on the ad, position should have advanced (not restarted)
+    expect(state2.currentTrack?.id).toBe("ad1");
+    expect(state2.position).toBeGreaterThan(state1.position);
+  }, 10000);
+
+  test("ad track plays for full duration without premature transition (state persistence bug)", async () => {
+    const musicTrack: Track = {
+      id: "music1",
+      title: "Music",
+      duration: 1,
+      isAd: false,
+    };
+    const adTrack: Track = {
+      id: "ad1",
+      title: "Ad",
+      duration: 60,
+      isAd: true,
+    };
+
+    await conductor.onClientConnect();
+
+    // Manually set state: music track (1s duration) is current, ad is next in queue
+    const now = Math.floor(Date.now() / 1000);
+    conductor["state"] = {
+      currentTrack: musicTrack,
+      position: 0,
+      queue: [adTrack],
+      isPlaying: true,
+      lastUpdated: now,
+      clientCount: 1,
+    };
+
+    // Wait for music track to end (1s + buffer)
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // First call should transition from music track to ad
+    const state1 = conductor.getCurrentState();
+    expect(state1.currentTrack?.id).toBe("ad1");
+    expect(state1.isPlaying).toBe(true);
+
+    // Wait 1 more second (ad has 60s duration — should still be playing)
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Second call — ad should still be playing with advanced position
+    // With the bug: state2.position resets to ~0 (transition re-triggers, ad restarts)
+    // With the fix: state2.position advances (state is persisted after transition)
+    const state2 = conductor.getCurrentState();
+    expect(state2.currentTrack?.id).toBe("ad1");
+    expect(state2.position).toBeGreaterThan(state1.position);
+
+    // Wait 1 more second — position should advance again
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const state3 = conductor.getCurrentState();
+    expect(state3.currentTrack?.id).toBe("ad1");
+    expect(state3.position).toBeGreaterThan(state2.position);
+  });
+
+  test("queue exhausted during live playback starts next track at position 0", async () => {
+    // Use tracks with duration 1 so they end quickly
+    const track1: Track = {
+      id: "quick1",
+      title: "Quick Track 1",
+      duration: 1,
+      isAd: false,
+    };
+    const track2: Track = {
+      id: "quick2",
+      title: "Quick Track 2",
+      duration: 300,
+      isAd: false,
+    };
+
+    await conductor.onClientConnect();
+    // Set playlist to both tracks
+    conductor.setPlaylist([track1, track2], [], 3);
+    // Bootstrap with track1 (which has duration 1)
+    conductor.bootstrapFresh([track1]);
+
+    // Wait for track1 to end and queue to be exhausted
+    // (track1 is in the queue from setPlaylist, so it advances to track1 again)
+    await new Promise((resolve) => setTimeout(resolve, 2100));
+
+    const state = conductor.getCurrentState();
+    expect(state.isPlaying).toBe(true);
+    // Position should be very small (just started at 0 with no random offset)
+    expect(state.position).toBeLessThan(5);
   });
 });
 
@@ -252,6 +608,135 @@ describe("Conductor - Ad Injection", () => {
     const adTrack = result.find((t) => t.isAd);
     expect(adTrack).toBeDefined();
     expect(adTrack!.id).toBe(mockAd.id);
+  });
+
+  test("ads are inserted at random positions within segments, not always at end", () => {
+    const tracks = [
+      mockTrack1,
+      mockTrack2,
+      { ...mockTrack1, id: "v3" },
+      { ...mockTrack2, id: "v4" },
+      { ...mockTrack1, id: "v5" },
+    ];
+    const ads = [{ ...mockAd, id: "ad1" }];
+
+    // Run injectAds many times and collect the position of the ad within
+    // the first segment (segmentSize = 5/1 = 5, so the ad could be at
+    // positions 0 through 5 in the result array).
+    const positions = new Set<number>();
+    for (let i = 0; i < 100; i++) {
+      const result = conductor.injectAds(tracks, ads, 1);
+      const adIdx = result.findIndex((t) => t.isAd);
+      expect(adIdx).toBeGreaterThanOrEqual(0);
+      positions.add(adIdx);
+    }
+
+    // The ad position should vary across runs (not always at the same spot)
+    expect(positions.size).toBeGreaterThan(1);
+  });
+});
+
+describe("Conductor - Sliding Window Queue", () => {
+  let conductor: Conductor;
+
+  beforeEach(() => {
+    conductor = new Conductor(5);
+  });
+
+  test("queue is capped at MAX_QUEUE_SIZE (15) after bootstrap", async () => {
+    // Create more than 15 music tracks
+    const tracks: Track[] = [];
+    for (let i = 0; i < 20; i++) {
+      tracks.push({ id: `t${i}`, title: `Track ${i}`, duration: 300, isAd: false });
+    }
+    const ads: Track[] = [];
+    for (let i = 0; i < 5; i++) {
+      ads.push({ id: `ad${i}`, title: `Ad ${i}`, duration: 30, isAd: true });
+    }
+
+    await conductor.onClientConnect();
+    conductor.setPlaylist(tracks, ads, 3);
+
+    const state = conductor.getCurrentState();
+    // Queue should be at most 15 items
+    expect(state.queue.length).toBeLessThanOrEqual(15);
+  });
+
+  test("queue refills after track consumption (sliding window)", async () => {
+    const tracks: Track[] = [];
+    for (let i = 0; i < 15; i++) {
+      tracks.push({ id: `t${i}`, title: `Track ${i}`, duration: 1, isAd: false });
+    }
+    const ads: Track[] = [];
+
+    await conductor.onClientConnect();
+    conductor.setPlaylist(tracks, ads, 3);
+
+    // Bootstrap
+    conductor.bootstrapFresh(undefined, false);
+    const initialState = conductor.getCurrentState();
+    const initialQueueLength = initialState.queue.length;
+    expect(initialQueueLength).toBeGreaterThan(0);
+
+    // Wait for first track to end (1s + buffer)
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    const state = conductor.getCurrentState();
+    // Queue should still have items (refilled after shift)
+    // Queue size should be roughly maintained (might be 1 less if library is exhausted)
+    expect(state.queue.length).toBeGreaterThanOrEqual(initialQueueLength - 1);
+    expect(state.queue.length).toBeLessThanOrEqual(initialQueueLength);
+  });
+
+  test("queue size decreases when library is smaller than MAX_QUEUE_SIZE", async () => {
+    // Library with only 5 music tracks + 1 ad = 6 total (under 15 limit).
+    // setPlaylist() is called BEFORE any client connects (matching the
+    // real startup flow in index.ts where the playlist loads before the
+    // server accepts connections), so the queue starts empty and gets
+    // built from the new library.
+    const tracks: Track[] = [];
+    for (let i = 0; i < 5; i++) {
+      tracks.push({ id: `t${i}`, title: `Track ${i}`, duration: 300, isAd: false });
+    }
+    const ads: Track[] = [{ id: "ad1", title: "Ad", duration: 30, isAd: true }];
+
+    // Call setPlaylist before connecting — queue starts empty, gets built
+    conductor.setPlaylist(tracks, ads, 1);
+    await conductor.onClientConnect();
+    // onClientConnect triggers bootstrap which picks a random current track
+    // and builds a new queue from scratch (excluding the picked track)
+    const state = conductor.getCurrentState();
+    // Queue should be built from the new library: 5 tracks, 1 picked as current,
+    // leaving 4 music + injected ad = 5 total (under 15 cap)
+    expect(state.queue.length).toBeLessThanOrEqual(15);
+    expect(state.queue.length).toBe(5);
+  });
+
+  test("setPlaylist during playback refills queue from library", async () => {
+    const tracks: Track[] = [];
+    for (let i = 0; i < 10; i++) {
+      tracks.push({ id: `t${i}`, title: `Track ${i}`, duration: 300, isAd: false });
+    }
+    const ads: Track[] = [{ id: "ad1", title: "Ad", duration: 30, isAd: true }];
+
+    await conductor.onClientConnect();
+    conductor.setPlaylist(tracks, ads, 1);
+    conductor.bootstrapFresh(undefined, false);
+
+    const state1 = conductor.getCurrentState();
+    expect(state1.queue.length).toBeGreaterThan(0);
+
+    // Calling setPlaylist again with the same playlist should preserve
+    // the existing queue (no reshuffling), not rebuild it from scratch.
+    conductor.setPlaylist(tracks, ads, 1);
+
+    const state2 = conductor.getCurrentState();
+    // Current track should not change
+    expect(state2.currentTrack?.id).toBe(state1.currentTrack?.id);
+    // Queue should still be populated
+    expect(state2.queue.length).toBeGreaterThan(0);
+    // Current track should not be in queue
+    expect(state2.queue.some((t) => t.id === state2.currentTrack?.id)).toBe(false);
   });
 });
 

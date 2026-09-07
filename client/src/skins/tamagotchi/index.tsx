@@ -639,7 +639,7 @@ export const tamagotchiSkin: Skin = {
             <ul data-testid="queue" className="tamagotchi-queue-list">
               {queue.map((track, i) => (
                 <li
-                  key={track.videoId}
+                  key={`${track.videoId}-${i}`}
                   data-testid="queue-item"
                   data-ad={track.isAd ? "true" : "false"}
                   className="tamagotchi-queue-row"

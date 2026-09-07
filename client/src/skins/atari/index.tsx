@@ -141,7 +141,10 @@ export const atariSkin: Skin = {
             <h2>Up Next ({queue.length})</h2>
             <ul data-testid="queue">
               {queue.map((track, i) => (
-                <QueueRow key={track.videoId} track={track} />
+                <QueueRow
+                  key={`${track.videoId}-${i}`}
+                  track={track}
+                />
               ))}
             </ul>
           </section>

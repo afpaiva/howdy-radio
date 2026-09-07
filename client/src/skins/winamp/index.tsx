@@ -407,9 +407,9 @@ function QueueList({ queue }: { queue: Track[] }): ReactElement | null {
     <div className="winamp-module winamp-queue">
       <TitleBar text="Up Next" />
       <ul data-testid="queue" className="winamp-queue-list">
-        {queue.map((track, i) => (
+         {queue.map((track, i) => (
           <li
-            key={track.videoId}
+            key={`${track.videoId}-${i}`}
             data-testid="queue-item"
             data-ad={track.isAd ? "true" : "false"}
             className={

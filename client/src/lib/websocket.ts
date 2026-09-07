@@ -27,14 +27,14 @@ import type {
 /**
  * Socket.io server URL.
  *
- * - Production: omitted — the single Bun process serves client + WS on the
- *   same origin, so `io()` connects to its own origin.
- * - Dev: the Vite dev server (port 3003) is separate from the server
- *   (port 3001), so we point at the server explicitly.
+ * - Set `VITE_WS_URL` whenever the client is not served from the same origin
+ *   as the conductor (GitHub Pages, Vite dev server, etc.).
+ * - Dev fallback: `http://localhost:3000` if the var is unset.
+ * - Same-origin production (Bun serving `client/dist`): leave unset so
+ *   `io()` connects to the page origin.
  */
-const WS_URL: string | undefined = (import.meta as any).env.PROD
-  ? undefined
-  : ((import.meta as any).env.VITE_WS_URL ?? "http://localhost:3001");
+const WS_URL: string | undefined =
+  (import.meta as any).env.VITE_WS_URL || "http://localhost:3000";
 
 /** The merged playback state the UI consumes, or `null` while connecting. */
 export interface PlaybackHookResult {
@@ -137,8 +137,9 @@ export function usePlayback(): PlaybackHookResult {
     socket.on("connect", () => {
       setConnectionStatus("connected");
       setLive(true);
-      // Control intent: "tune in / join broadcast" (autoplay gate).
-      socket.emit("join");
+      // Do NOT emit "join" here — the server already sends "state" on connect.
+      // The "join-broadcast" control intent is only emitted after the user
+      // clicks "Tune in" (tuneIn()), satisfying the autoplay policy.
     });
 
     socket.on("disconnect", () => {
@@ -186,7 +187,7 @@ export function usePlayback(): PlaybackHookResult {
   }, []);
 
   const tuneIn = () => {
-    socketRef.current?.emit("join");
+    socketRef.current?.emit("join-broadcast");
   };
 
   return { state, isLive, tuneIn };

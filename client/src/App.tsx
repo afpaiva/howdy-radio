@@ -11,6 +11,12 @@
  * state arrives from the server, the active skin renders the received
  * {@link PlaybackState}.
  *
+ * The entire app is gated behind authentication via {@link LoginGate}.
+ * The login state is tracked via an HTTP-only session cookie (set by the
+ * server on POST /auth/login) — no localStorage is used for auth (per
+ * client/AGENTS.md hard rule #2). On mount, LoginGate checks for an
+ * existing session via GET /auth/me.
+ *
  * App-shell views follow the "Editorial Nostalgia & Playful Warmth" design
  * language (docs/frontend_scope/DESIGN_DIRECTIONS.md): warm off-white canvas,
  * organic bento framing, expressive bubble typography, and floating pill
@@ -19,8 +25,11 @@
 
 import { useEffect, useState } from "react";
 import { usePlayback } from "./lib/websocket";
+import { useYouTubePlayer } from "./lib/youtube-player";
 import { DEFAULT_SKIN_ID, getSkin, getSkins } from "./skins/registry";
 import type { Skin } from "./skins/types";
+import { LoginGate } from "./components/LoginGate";
+import type { AuthUser } from "./components/LoginGate";
 import heroLogo from "../assets/hero-logo.png";
 import horizontalLogo from "../assets/horizontal-logo.png";
 import "./styles/app.css";
@@ -28,12 +37,43 @@ import "./styles/app.css";
 const STORAGE_KEY = "howdy-skin";
 
 export default function App() {
-  const { state, isLive } = usePlayback();
+  const [authenticated, setAuthenticated] = useState<AuthUser | null>(null);
+
+  // Once authenticated, the full app shell (WebSocket player, skins, etc.) renders.
+  if (!authenticated) {
+    return (
+      <div className="howdy-app">
+        <LoginGate onAuthenticated={setAuthenticated} />
+      </div>
+    );
+  }
+
+  return <AppShell />;
+}
+
+/**
+ * AppShell — the authenticated portion of the app.
+ * Rendered only after successful login.
+ */
+function AppShell() {
+  const { state, isLive, tuneIn } = usePlayback();
   const [tunedIn, setTunedIn] = useState(false);
   const [skinId, setSkinId] = useState<string>(() => {
     if (typeof window === "undefined") return DEFAULT_SKIN_ID;
     return window.localStorage.getItem(STORAGE_KEY) ?? DEFAULT_SKIN_ID;
   });
+
+  /**
+   * The "Tune in" control is the single user-gesture entry point for audio
+   * (client/AGENTS.md hard rule #6). It must both signal the server
+   * (emitting the `join-broadcast` control intent) AND flip the local autoplay gate
+   * so the YouTube player is cleared to start playback.
+   */
+  const playerRef = useYouTubePlayer(state, tunedIn);
+  const handleTuneIn = () => {
+    setTunedIn(true);
+    tuneIn();
+  };
 
   // Persist the per-user skin preference (presentational, not sync state).
   useEffect(() => {
@@ -46,12 +86,23 @@ export default function App() {
 
   return (
     <div className="howdy-app">
+      {/*
+        Visually-hidden YouTube IFrame — audio-first, never shown on screen
+        (client/AGENTS.md hard rule #5). It is rendered outside the skin
+        tree so switching skins never unmounts the player.
+      */}
+      <div
+        ref={playerRef}
+        className="howdy-youtube-player"
+        data-testid="youtube-player-container"
+        aria-hidden="true"
+      />
       <Header
         skins={getSkins()}
         activeId={skinId}
         onChange={setSkinId}
         tunedIn={tunedIn}
-        onTuneIn={() => setTunedIn(true)}
+        onTuneIn={handleTuneIn}
       />
       {!isLive ? (
         // Stage 1: connecting
@@ -72,7 +123,7 @@ export default function App() {
             <button
               type="button"
               className="howdy-pill howdy-pill--amber"
-              onClick={() => setTunedIn(true)}
+              onClick={handleTuneIn}
             >
               Tune in
             </button>

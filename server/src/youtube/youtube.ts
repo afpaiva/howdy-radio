@@ -1,4 +1,4 @@
-import type { Track, YouTubeConfig } from "../types";
+import type { Track, YouTubeConfig, VideoMetadata } from "../types";
 import { SeedPlaylist } from "../seed/playlist";
 
 export class YouTubeService {
@@ -22,6 +22,55 @@ export class YouTubeService {
     } catch (error) {
       console.error("Failed to fetch YouTube Shorts, using mock:", error);
       return SeedPlaylist.getAds();
+    }
+  }
+
+  /**
+   * Batch-fetch video metadata (duration + title) from the YouTube Data API v3.
+   * Returns a map of videoId → { duration, title }.
+   * Returns an empty map if the API key is not configured (mock mode).
+   */
+  async fetchVideoMetadata(videoIds: string[]): Promise<Map<string, VideoMetadata>> {
+    if (!this.config.apiKey || videoIds.length === 0) {
+      return new Map();
+    }
+
+    try {
+      // YouTube API allows up to 50 IDs per request
+      const batches: string[][] = [];
+      for (let i = 0; i < videoIds.length; i += 50) {
+        batches.push(videoIds.slice(i, i + 50));
+      }
+
+      const metadataMap = new Map<string, VideoMetadata>();
+
+      for (const batch of batches) {
+        // Fetch both contentDetails (duration) and snippet (title) in one request
+        const response = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${batch.join(",")}&key=${this.config.apiKey}`
+        );
+
+        if (!response.ok) {
+          console.warn(`YouTube API error: ${response.status}`);
+          continue;
+        }
+
+        const data = (await response.json()) as YouTubeVideosResponse;
+        for (const item of data.items) {
+          const duration = this.parseDuration(item.contentDetails?.duration);
+          if (duration > 0) {
+            metadataMap.set(item.id, {
+              duration,
+              title: item.snippet?.title || "",
+            });
+          }
+        }
+      }
+
+      return metadataMap;
+    } catch (error) {
+      console.error("Failed to fetch video metadata:", error);
+      return new Map();
     }
   }
 

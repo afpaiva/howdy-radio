@@ -1,15 +1,22 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import path from 'path';
+import { fileURLToPath } from 'url';
 
 export default defineConfig({
   plugins: [react()],
+  base: '/',
   server: {
     port: 3003,
+    proxy: {
+      '/auth': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
 });

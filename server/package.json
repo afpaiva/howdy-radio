@@ -9,15 +9,18 @@
     "test": "bun test",
     "test:watch": "bun test --watch",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "verify": "bun test && bun run typecheck && bun run lint"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/jsonwebtoken": "^9.0.10",
     "eslint": "^9",
     "typescript": "^5",
     "typescript-eslint": "^8.69.0"
   },
   "dependencies": {
+    "jsonwebtoken": "^9.0.3",
     "socket.io": "^4.8.3"
   }
 }

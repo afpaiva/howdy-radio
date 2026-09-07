@@ -52,6 +52,12 @@ e2e/ -> Playwright end-to-end tests
    auto-start audio on mount; playback only starts after the user clicks
    the "Tune in" / "Join broadcast" control (see SPEC.md — Autoplay
    Handling).
+7. **Never print `.env` contents.** Do not run `cat .env`, `printenv`,
+   or similar commands that would output secret values. If you need to
+   verify an environment variable is set, check only its presence,
+   never its value — e.g. `[ -n "$SLACK_BOT_TOKEN" ] && echo "set" ||
+   echo "missing"`.
+
 
 ## Testing
 
@@ -101,3 +107,4 @@ bunx playwright install
 - Components are function components; no class components.
 - New skins must implement `Skin` from `src/skins/types.ts` and be
   registered in `src/skins/registry.ts` — nowhere else.
+  

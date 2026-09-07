@@ -136,7 +136,7 @@ export interface ClientToServerEvents {
    * policy and signals "tune in / join broadcast" per SPEC.md (Autoplay
    * Handling). The server may use this to know a client is ready.
    */
-  join: () => void;
+  "join-broadcast": () => void;
 }
 
 /* ──────────────────────── Skin contract ─────────────────────────── */
