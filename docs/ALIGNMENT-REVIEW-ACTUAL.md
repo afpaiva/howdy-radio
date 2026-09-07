@@ -1,8 +1,8 @@
 # Alignment Review — Howdy Radio (Actual vs SPEC.md / SYSTEM.md)
 
 **Reviewer mode:** Report-only. No edits made to code or docs.  
-**Date:** 2026-09-05  
-**Method:** Read `/docs/SPEC.md`, `/docs/SYSTEM.md`, and the full codebase (`client/src/`, `server/src/`, `server/index.ts`, `docs/`). No reference to prior review files was used; observations are from direct file inspection only.
+**Date:** 2026-09-07  
+**Method:** Direct inspection of `/docs/SPEC.md`, `/docs/SYSTEM.md`, and current source (`client/src/`, `server/src/`, `server/index.ts`). Previous review documents (`ALIGNMENT-REVIEW-001.md`, `002.md`, `003.md`) were not used as references; observations come from direct file reading only.
 
 ---
 
@@ -15,78 +15,51 @@
 
 ## 1. Requirement Violations
 
-### 1.1 Client–server control-intent event names do not match (Autoplay / Socket.io contract)
+### 1.1 Ad-append probability does not match `AD_APPEND_PROBABILITY` spec (§Ads / §Playback Queue)
 
 | Spec reference | Implementation reference | Finding |
 |---|---|---|
-| SPEC.md §Autoplay Handling: client shows a "Tune in" / "Join broadcast" button; clicking it satisfies the interaction requirement and starts playback synchronized to the server. SPEC.md §Communication: control events via Socket.io. `client/src/skins/types.ts` defines `ClientToServerEvents`. | `client/src/lib/websocket.ts` line 190: `socketRef.current?.emit("join-broadcast")`. `client/src/skins/types.ts` line 139: `"join-broadcast": () => void;`. `server/src/ws/handler.ts` line 37: `socket.on("join", () => { ... })`. | The client emits `"join-broadcast"`; the server listens for `"join"`. The events never match, so the server never receives the client’s control-intent (`handleJoin()` is never triggered by user interaction). The client’s `App.tsx` (`line 42`) refers to the event as `join` in a comment, reinforcing the naming confusion. Playback starts locally because `enabled` flips independently, but the documented wire contract (`ClientToServerEvents` ↔ server listener) is broken. |
+| SPEC.md §Ads line 98: `AD_APPEND_PROBABILITY` (default: `0.2`, i.e. ~1-in-5). SPEC.md §Playback Queue line 114: "Randomly decide music vs. ad, weighted by `AD_APPEND_PROBABILITY`." SPEC.md Key Technical Decisions line 228: "Probabilistic ad append vs. segment-based injection". | `server/src/conductor/conductor.ts` line 401 (`refillQueue`): `const useAd = Math.random() < 0.5;`. There is no `AD_APPEND_PROBABILITY` constant or environment variable; the code hard-codes `0.5` (50 % chance) instead of `0.2`. Additionally, `injectAds()` (`line 333`) still performs segment-based injection, which SPEC.md explicitly replaced with the probabilistic append model. `buildInitialQueue()` (`line 518`) also uses `injectAds()` rather than drawing from the library with the 0.2 weight. | Ad density is roughly 2.5× higher than specified (`0.5` vs `0.2`), and the obsolete segment-based algorithm is still used for initial queue construction. This violates the rolling-queue design contract described in §Playback Queue and §Ads. |
 
-**Severity:** Requirement violation (wire contract broken; autoplay interaction signal lost to server).
+**Severity:** Requirement violation (ad-distribution contract broken; wrong probability; obsolete injection algorithm retained).
 
 ---
 
-### 1.2 Slack user name fallback ignores `real_name` (Playlist / Playback attribution)
+### 1.2 `Conductor.getState()` does not apply or clear idle snapshot (state-machine inconsistency)
 
 | Spec reference | Implementation reference | Finding |
 |---|---|---|
-| SPEC.md §Client Playback / §Playlist Management: "Name of the Slack user who posted the link (requires `users:read` bot scope): use the user's `display_name`, falling back to `real_name` if the display name is empty (standard Slack app behavior)." | `server/src/slack/slack.ts` lines 88–90: `displayName = userInfo?.displayName || msg.user || "unknown"`. `userInfo?.displayName` is `user.profile?.display_name \|\| ""`. When empty, it falls back to `msg.user` (raw Slack user ID, e.g. `U012AB3CD4`), not to `userInfo?.realName` (`user.profile?.real_name` or `user.real_name`). The `realName` field is extracted (`line 90`) but never used as a display-name fallback. | When a Slack user has an empty `display_name`, the track attribution shows the raw user ID instead of the `real_name`, violating the standard Slack-app behavior documented in the spec. The `users:read` scope is present (`getUserInfo()` uses `/users.info`), but the result is applied incorrectly. |
+| SPEC.md §Playback Bootstrap & Idle Behavior: idle computation should apply the result (resume or fresh bootstrap) and clear the snapshot (`idleSnapshot = null`). Only `onClientConnect()` (via `acquireBootstrapLock()`) is expected to trigger the full bootstrap-and-apply sequence. | `server/src/conductor/conductor.ts` lines 52–57 (`getState()`): when `clientCount === 0`, calls `computeOnDemandState()` but does **not** call `applyState()` or `idleSnapshot = null`. Lines 422–424 (`getCurrentState()`): delegates to `computeLiveState()`, which does apply state, but `getState()` remains inconsistent. `getState()` is called from `WsHandler.handleJoin()` (`line 77`) and `broadcastState()` (`line 86`), meaning a disconnection followed by a `join-broadcast` can return an un-applied idle-computed state. | The public `getState()` API produces a computed result without committing it to `this.state`, so subsequent ticks or broadcasts may see a different base state. This is a design-level contract breach between the conductor's internal state machine and its read API. |
 
-**Severity:** Requirement violation (user attribution contract broken).
+**Severity:** Requirement violation / design contract breach (`getState()` is part of the conductor interface and must reflect applied state; uncommitted idle results can leak to clients via `handleJoin` and broadcast paths).
 
 ---
 
 ## 2. Minor / Style / Wire-Contract Issues
 
-### 2.1 Development port / WS URL mismatches (not a functional break in production)
-
-| Reference | Finding |
-|---|---|
-| `client/src/lib/websocket.ts` line 35–37: `WS_URL` defaults to `"http://localhost:3000"` (`VITE_WS_URL` override available). `client/playwright.config.ts`: `baseURL: 'http://localhost:3003'`. `server/index.ts` line 70: `port: 3001`. | Development ports are not aligned (`client` dev server, Playwright, server, and default WS URL use four different ports). In production (`PROD` flag true) `WS_URL` is `undefined`, so the client connects to its own origin and the mismatch disappears. This is a minor integration/config inconsistency, not a spec violation. |
-
----
-
-### 2.2 Server entrypoint uses `http.createServer` instead of `Bun.serve()`
+### 2.1 Server entrypoint uses `http.createServer` instead of `Bun.serve()` (convention deviation)
 
 | Spec / System reference | Implementation reference | Finding |
 |---|---|---|
-| SPEC.md Key Technical Decisions: "Bun for server — Native WebSocket, fast startup, TypeScript support, single binary deployment." `AGENTS.md` (server): "Uses `Bun.serve()`"; "Don't use `express`." `SYSTEM.md`: references `Bun.serve()` as preferred API. | `server/index.ts` line 92: `const httpServer = createServer((req, res) => { ... });` (imported from Node `http`). `Bun.serve()` is not used. | The server still achieves co-hosted static files + Socket.io on a single port (`3001`), so the deployment model is satisfied functionally. Using `createServer` from `http` instead of the native Bun API is a deviation from the documented convention but does not break any stated requirement. |
+| SPEC.md Key Technical Decisions: "Bun for server — Native WebSocket, fast startup, TypeScript support, single binary deployment." `AGENTS.md` (server): "Uses `Bun.serve()`"; "Don't use `express`." `SYSTEM.md`: references `Bun.serve()` as preferred API. | `server/index.ts` line 98: `const httpServer = createServer((req, res) => { ... });` (imported from Node `http`). `Bun.serve()` is not used anywhere in the server entrypoint. | Functionally the server co-hosts static files + Socket.io correctly on port `3001`, but the documented Bun-native convention is not followed. Minor style/convention deviation only. |
 
 ---
 
-### 2.3 `Conductor.getState()` computes idle-state without applying or clearing snapshot
+### 2.2 Development port / WS URL mismatches (integration config inconsistency)
 
-| Spec reference | Implementation reference | Finding |
-|---|---|---|
-| SPEC.md §Playback Bootstrap & Idle Behavior: idle computation should happen on the next connection (`onClientConnect()` triggers the bootstrap lock and applies the result). | `server/src/conductor/conductor.ts` lines 42–47 (`getState()`): when `clientCount === 0`, returns `this.computeOnDemandState()` but does **not** call `this.applyState()` or `this.idleSnapshot = null`. Only `acquireBootstrapLock()` (`line 104`) applies the computed state and clears the snapshot. | Since `WsHandler` only calls `onClientConnect()` (not `getState()`) for new connections, production behavior is unaffected. The API surface (`getState()`) is slightly inconsistent with the internal state machine, making it a minor naming/style issue at the design level. |
-
----
-
-### 2.4 Client `App.tsx` comment uses `"join"` instead of `"join-broadcast"`
-
-| Implementation reference | Finding |
+| Reference | Finding |
 |---|---|
-| `client/src/App.tsx` line 42: `* (emitting the `join` control intent) ...`. The actual emitted event (via `tuneIn()` → `usePlayback()`) is `"join-broadcast"` (`client/src/lib/websocket.ts` line 190, `client/src/skins/types.ts` line 139). | Minor naming/style inconsistency in inline documentation. |
+| `client/src/lib/websocket.ts` line 37: `WS_URL` defaults to `"http://localhost:3000"`. `client/playwright.config.ts`: `baseURL: 'http://localhost:3003'`. `server/index.ts` line 74: `port: 3001`. | Four different ports in development (`client` Vite, Playwright, server, default WS URL). In production (`PROD`) the client connects to its own origin, so this is non-functional. Minor config inconsistency. |
 
 ---
 
-## 3. Confirmed Aligned Areas (not misalignments)
+## 3. Confirmed Aligned / Fixed Areas (not misalignments)
 
-The following spec sections are implemented correctly and do **not** represent misalignments:
+These items were previously misaligned (`ALIGNMENT-REVIEW-003.md`) and are now resolved by current source inspection:
 
-- **Skin interface & registry** (`client/src/skins/types.ts`, `registry.ts`): matches `SPEC.md` Architecture §Skin Interface; all 5 skins (`winamp`, `atari`, `walkman`, `tamagotchi`, `neutral`) implement `Skin` exactly.
-- **Skin persistence via `localStorage`** (`client/src/App.tsx` line 29, `STORAGE_KEY`): explicitly permitted by `SPEC.md` §Skin Persistence; no sync-state storage is used.
-- **Up Next / Queue display** (`SPEC.md` §Up Next Display): intentionally kept across all 5 skins; clients render queue data received from server (`WebSocket` `state`), never computing/reordering independently; `skin-contract.test.tsx` validates this.
-- **Auth interface + `StubEmailProvider`** (`server/src/auth/authProvider.ts`): `AuthProvider` interface matches spec; `StubEmailProvider` validates `@howdy.com` domain; `AUTH_PROVIDER` env variable handled; JWT cookie (`/auth/login`) issued correctly.
-- **Mock mode** (`server/src/seed/playlist.json`, `SlackService.isMockMode()`, `YouTubeService.isMockMode()`): falls back to seed playlist/ads when `SLACK_BOT_TOKEN` or `YOUTUBE_API_KEY` is missing.
-- **Slack playlist extraction** (`server/src/slack/slack.ts`): `channels:history` used; `extractYouTubeUrls()` handles YouTube / YouTube Music / Shorts / embed links; `videoMap` deduplicates by video ID keeping the most recent post (`messages.reverse()`); `users.info` (`users:read`) used for user lookup.
-- **YouTube Shorts / Ads** (`server/src/youtube/youtube.ts`): fetches from `HOWDY_YOUTUBE_CHANNEL_ID`; filters by `duration <= 60`; returns `ADS_COUNT` most recent; `parseDuration()` handles ISO 8601 durations.
-- **Ad injection algorithm** (`server/src/conductor/conductor.ts` `injectAds()`): divides playlist into `ADS_COUNT` segments; selects random ad position within each segment (`Math.random()`); ads play from start (client treats `isAd` with `position = 0`); `bootstrapFresh()` uses random start for music (`useRandomStart = true`) and `0` for non-bootstrap transitions (`false`).
-- **Play state / WebSocket sync** (`client/src/lib/websocket.ts`, `server/src/ws/handler.ts`): server broadcasts `state`, `tick`, `idle`; clients receive and normalize (`normalizeState`, `normalizeTrack`) without owning sync state; `connectionStatus` is derived locally; no `localStorage`/`sessionStorage` for playback state.
-- **Autoplay interaction gate** (`client/src/App.tsx`): shows "Tune in" button; `tunedIn` gate prevents `useYouTubePlayer()` from starting until user interaction; `youTube-player.ts` uses `autoplay: 0` and only plays when `enabled` is `true`.
-- **Idle / Grace behavior** (`server/src/conductor/conductor.ts`): `idleSnapshot` stored on disconnect (`onClientDisconnect()`); `computeOnDemandState()` computes `elapsed`, checks grace period (`RECONNECT_GRACE_PERIOD_MINUTES`), resumes same track if `position + elapsed < duration`, otherwise fresh bootstrap; concurrent connections handled by `acquireBootstrapLock()`.
-- **No audio re-hosting** (`SPEC.md` Restrictions): server never downloads/proxies audio bytes; client uses `YouTube IFrame Player API` (`youtube-player.ts`).
-- **No Spotify / other sources** (Non-Goals): only YouTube links handled (`slack/slack.ts` regexes).
-- **No persistence across server restarts** (Non-Goals): playlist rebuilt on startup (`refreshPlaylist()` in `server/index.ts`).
+- **Socket.io control-intent event names** (`client/src/lib/websocket.ts` line 190; `client/src/skins/types.ts` line 139; `server/src/ws/handler.ts` line 37): client emits `"join-broadcast"`; server listens `"join-broadcast"`. **Aligned**.
+- **Slack `display_name` fallback to `real_name`** (`server/src/slack/slack.ts` line 92): `displayName = userInfo?.displayName || realName || "unknown"`. `realName` is now used as the second fallback; raw user ID (`msg.user`) is no longer shown. **Aligned**.
+- **Client `App.tsx` naming** (`line 69`): comment now reads `"join-broadcast"`. **Aligned**.
 
 ---
 
@@ -94,9 +67,9 @@ The following spec sections are implemented correctly and do **not** represent m
 
 | Severity | Count | Areas |
 |---|---|---|
-| **Critical / Requirement Violation** | 2 items (§1.1, §1.2) | Socket.io control-intent event mismatch (`join` vs `join-broadcast`); Slack `display_name` fallback ignores `real_name` (uses raw user ID). |
-| **Minor / Naming / Style / Wire Contract** | 4 items (§2.1, §2.2, §2.3, §2.4) | Port/config mismatches; server uses `createServer` instead of `Bun.serve()`; `Conductor.getState()` read-only inconsistency; inline comment naming mismatch (`"join"` vs `"join-broadcast"`). |
+| **Critical / Requirement Violation** | 2 items (§1.1, §1.2) | `AD_APPEND_PROBABILITY` hard-coded to `0.5` (should be `0.2`) + obsolete segment-based `injectAds()` retained; `getState()` does not apply/clear idle snapshot. |
+| **Minor / Naming / Style / Wire Contract** | 2 items (§2.1, §2.2) | Server entrypoint uses `createServer` instead of `Bun.serve()`; dev port mismatches. |
 
 ---
 
-*No code or docs edited. Observations derived solely from direct inspection of `/docs/SPEC.md`, `/docs/SYSTEM.md`, and source files at the time of review. Previous review documents were not consulted or referenced.*
+*No code or docs edited. Observations derived solely from direct inspection of `/docs/SPEC.md`, `/docs/SYSTEM.md`, and source files at the time of review (2026-09-07). Previous review documents (`001`, `002`, `003`) were not consulted or referenced.*
