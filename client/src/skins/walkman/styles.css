@@ -1,0 +1,598 @@
+/**
+ * /client/src/skins/walkman/styles.css
+ *
+ * Styles for the classic Sony Walkman skin.
+ *
+ * Scoped under `.walkman-skin` so nothing leaks into other skins or the
+ * host shell (per client/AGENTS.md rule #3: skin isolation). All visual
+ * tokens are defined here as CSS custom properties so the look stays
+ * editable in one place.
+ *
+ * Color values come from docs/skins_scopes/WALKMAN.md:
+ *   - Pacific blue body:    #2B509E / #3B5BA5
+ *   - Brushed silver top:   #C0C0C0 / #DCDCDC
+ *   - Safety orange:        #FF5500 / #FF6600
+ *   - Matte black hardware: #1A1A1A
+ *   - Stark white print:    #FFFFFF
+ */
+
+.walkman-skin {
+  /* ── Color tokens ───────────────────────────────────────────────── */
+  --wm-blue-deep: #2b509e;
+  --wm-blue-mid: #345fae;
+  --wm-blue-light: #3b5ba5;
+  --wm-silver-top: #c0c0c0;
+  --wm-silver-mid: #d0d0d0;
+  --wm-silver-light: #dcdcdc;
+  --wm-orange: #ff5500;
+  --wm-orange-bright: #ff6600;
+  --wm-black: #1a1a1a;
+  --wm-black-soft: #2a2a2a;
+  --wm-window-tint: #1c1f24;
+  --wm-tape-label: #f4ead0;
+  --wm-white: #ffffff;
+  --wm-shadow: rgba(0, 0, 0, 0.45);
+
+  /* ── Typography ─────────────────────────────────────────────────── */
+  --wm-font: "Helvetica Neue", "Arial Black", Arial, sans-serif;
+
+  /* ── Layout ─────────────────────────────────────────────────────── */
+  --wm-chassis-width: 360px;
+  --wm-chassis-radius: 10px;
+  --wm-top-height: 84px;
+
+  /* ── Base reset for the skin root ──────────────────────────────── */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px;
+  font-family: var(--wm-font);
+  color: var(--wm-white);
+  background: transparent;
+  min-height: 100%;
+}
+
+/* ── Soft overhead ambient glow behind the chassis ──────────────── */
+.walkman-skin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(255, 255, 255, 0.06) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Chassis: the walkman body itself
+ * ───────────────────────────────────────────────────────────────── */
+.walkman-chassis {
+  position: relative;
+  width: var(--wm-chassis-width);
+  max-width: 100%;
+  border-radius: var(--wm-chassis-radius);
+  background: linear-gradient(
+    180deg,
+    var(--wm-blue-mid) 0%,
+    var(--wm-blue-deep) 50%,
+    var(--wm-blue-light) 100%
+  );
+  box-shadow:
+    0 18px 40px -12px var(--wm-shadow),
+    0 4px 10px -2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+/* ── Brushed-aluminum top plate ─────────────────────────────────── */
+.walkman-top-plate {
+  position: relative;
+  height: var(--wm-top-height);
+  background:
+    /* subtle horizontal brushed-metal striations */
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0px,
+      rgba(255, 255, 255, 0.04) 1px,
+      rgba(0, 0, 0, 0.03) 1px,
+      rgba(0, 0, 0, 0.03) 2px
+    ),
+    linear-gradient(
+      180deg,
+      var(--wm-silver-light) 0%,
+      var(--wm-silver-top) 45%,
+      var(--wm-silver-mid) 100%
+    );
+  border-bottom: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* soft overhead specular highlight on the top plate */
+.walkman-top-plate::after {
+  content: "";
+  position: absolute;
+  top: 6%;
+  left: 8%;
+  right: 8%;
+  height: 35%;
+  border-radius: 50%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+/* ── Recessed cassette window ───────────────────────────────────── */
+.walkman-window-frame {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 72%;
+  height: 56%;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #0d0f12 0%, var(--wm-black) 100%);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.9),
+    inset 0 -1px 2px rgba(255, 255, 255, 0.06),
+    0 1px 0 rgba(255, 255, 255, 0.25);
+  padding: 6px;
+}
+
+.walkman-window {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(
+    180deg,
+    var(--wm-window-tint) 0%,
+    #14171b 50%,
+    #0a0c10 100%
+  );
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 8px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* the white cassette label area inside the window */
+.walkman-tape-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64%;
+  height: 38%;
+  background:
+    linear-gradient(180deg, var(--wm-tape-label) 0%, #e6dab3 100%);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 4px rgba(0, 0, 0, 0.25),
+    0 1px 1px rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+/* the two black sprocket hubs */
+.walkman-sprocket {
+  position: absolute;
+  top: 50%;
+  width: 22%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #3a3a3a 0%, var(--wm-black) 70%);
+  box-shadow:
+    inset 0 0 0 2px #0a0a0a,
+    inset 0 0 6px rgba(0, 0, 0, 0.6),
+    0 1px 2px rgba(0, 0, 0, 0.6);
+  transform: translateY(-50%);
+}
+
+.walkman-sprocket--left {
+  left: 10%;
+}
+
+.walkman-sprocket--right {
+  right: 10%;
+}
+
+/* sprocket teeth — radial dashes, simulating cassette wheel */
+.walkman-sprocket::before {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.18);
+}
+
+/* center spindle hole */
+.walkman-sprocket::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14%;
+  height: 14%;
+  border-radius: 50%;
+  background: var(--wm-black);
+  transform: translate(-50%, -50%);
+  box-shadow: inset 0 0 2px rgba(255, 255, 255, 0.15);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Front faceplate: blue body that holds the printed branding and
+ * the mechanical controls
+ * ───────────────────────────────────────────────────────────────── */
+.walkman-faceplate {
+  position: relative;
+  padding: 20px 24px 28px;
+  min-height: 240px;
+}
+
+/* the small inset inner bevel around the faceplate */
+.walkman-faceplate::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* vertical brand print on the left edge — "SONY" */
+.walkman-brand-sony {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%) rotate(180deg);
+  writing-mode: vertical-rl;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: var(--wm-white);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* vertical brand print on the right edge — "WALKMAN" */
+.walkman-brand-walkman {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  writing-mode: vertical-rl;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--wm-white);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* hollow white left-arrow graphic (functional indicator) */
+.walkman-arrow {
+  display: block;
+  width: 56px;
+  height: 22px;
+  margin: 0 auto 14px;
+}
+
+/* ── Track display block ────────────────────────────────────────── */
+.walkman-track {
+  text-align: center;
+  padding: 4px 22px 0;
+}
+
+.walkman-track-title {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--wm-white);
+  margin: 0 0 6px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  /* keep titles on a single line for the iconic look */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.walkman-track-meta {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 14px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Mechanical controls row — play indicator + transport buttons
+ *
+ * The play state is rendered as a chunky toggle (orange when playing,
+ * dark when paused) to evoke the iconic orange side-switch accent.
+ * ───────────────────────────────────────────────────────────────── */
+.walkman-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+/* the central play/pause toggle: orange when playing, dark when paused */
+.walkman-toggle {
+  position: relative;
+  width: 78px;
+  height: 34px;
+  border-radius: 6px;
+  border: 2px solid var(--wm-black);
+  background: linear-gradient(
+    180deg,
+    #4a4a4a 0%,
+    #2a2a2a 50%,
+    #1a1a1a 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 2px 3px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  cursor: default;
+}
+
+.walkman-toggle-knob {
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  background: linear-gradient(
+    180deg,
+    var(--wm-orange-bright) 0%,
+    var(--wm-orange) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 2px rgba(0, 0, 0, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: transform 160ms ease-in-out;
+}
+
+.walkman-toggle[data-playing="true"] .walkman-toggle-knob {
+  transform: translateX(0);
+}
+
+.walkman-toggle[data-playing="false"] .walkman-toggle-knob {
+  transform: translateX(44px);
+}
+
+/* flanking transport buttons (REW / FF) — matte black with icon */
+.walkman-button {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid #000;
+  background: linear-gradient(
+    180deg,
+    #3a3a3a 0%,
+    var(--wm-black-soft) 50%,
+    var(--wm-black) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 2px 3px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--wm-white);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Position / counter row beneath the chassis
+ *
+ * Evokes the mechanical 3-digit tape counter, with the elapsed vs
+ * total duration printed in the same utilitarian sans-serif.
+ * ───────────────────────────────────────────────────────────────── */
+.walkman-position {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  font-family: var(--wm-font);
+  color: var(--wm-white);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.walkman-counter {
+  background: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+  border: 1px solid #000;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.8),
+    0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--wm-orange-bright);
+  text-shadow: 0 0 4px rgba(255, 102, 0, 0.5);
+}
+
+.walkman-position-divider {
+  opacity: 0.7;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Source link — the small white link back to YouTube
+ * ───────────────────────────────────────────────────────────────── */
+.walkman-source {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--wm-white);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  padding-bottom: 1px;
+}
+
+.walkman-source:hover,
+.walkman-source:focus-visible {
+  border-bottom-color: var(--wm-orange-bright);
+  color: var(--wm-orange-bright);
+  outline: none;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Connection status badge — tiny hardware-LED style indicator
+ * ───────────────────────────────────────────────────────────────── */
+.walkman-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.walkman-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #555;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.walkman-led--connected {
+  background: radial-gradient(circle at 35% 35%, #ffd28a, var(--wm-orange-bright) 60%, var(--wm-orange) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 0 6px rgba(255, 102, 0, 0.6);
+}
+
+.walkman-led--connecting {
+  background: radial-gradient(circle at 35% 35%, #fff5cc, #f0c060 100%);
+}
+
+.walkman-led--disconnected {
+  background: radial-gradient(circle at 35% 35%, #5a3030, #3a1010 100%);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Idle state — no current track
+ * ───────────────────────────────────────────────────────────────── */
+.walkman-idle {
+  text-align: center;
+  padding: 24px 22px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Up-next list — etched cassette-label panel
+ *
+ * Contract testids (`walkman-queue`, `walkman-queue-item`) are kept on
+ * the structural elements so the shared Skin contract suite can find
+ * them via data-testid="queue" / data-testid="queue-item".
+ * ───────────────────────────────────────────────────────────────── */
+.walkman-queue {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 10px 14px;
+  width: var(--wm-chassis-width);
+  max-width: 100%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(0, 0, 0, 0.18)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+  color: var(--wm-white);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.walkman-queue-item {
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.walkman-queue-item:last-child {
+  border-bottom: none;
+}
+
+.walkman-queue-item[data-ad="true"] {
+  color: rgba(255, 200, 120, 0.95);
+  font-style: italic;
+}
+
+.walkman-queue-item[data-ad="true"] .walkman-queue-title::before {
+  content: "[ad] ";
+  font-style: normal;
+  color: var(--wm-orange-bright);
+  letter-spacing: 1px;
+}
+
+.walkman-queue-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+ * Screen-reader-only helper (used to surface "Playing"/"Paused"
+ * text for the contract suite without disturbing the visual layout)
+ * ───────────────────────────────────────────────────────────────── */
+.walkman-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -49,6 +49,20 @@ function formatTime(seconds: number): string {
 }
 
 /**
+ * Poster label for the LCD. The wire adapter currently supplies
+ * `postedBy` as a string; the Skin Track type still describes an object.
+ * Accept both so a live broadcast cannot crash the skin.
+ */
+function postedByName(postedBy: Track["postedBy"] | string | undefined): string {
+  if (typeof postedBy === "string" && postedBy.length > 0) return postedBy;
+  if (postedBy && typeof postedBy === "object") {
+    const name = postedBy.displayName || postedBy.realName || postedBy.id;
+    if (name) return name;
+  }
+  return "unknown";
+}
+
+/**
  * Build the 90s handheld-pet sprite:
  *  - Big rounded head with droopy ears (when idle)
  *  - Mouth opens/closes with the play/pause state
@@ -415,8 +429,8 @@ function StatusBar({
         data-blink={signalBlink ? "true" : "false"}
         aria-label={`signal ${connectionStatus}`}
       />
-      {icons.map((name) => (
-        <StatusIcon key={name} name={name} />
+      {icons.map((name, i) => (
+        <StatusIcon key={i} name={name} />
       ))}
       {side === "bottom" && (
         <span
@@ -441,13 +455,11 @@ function CurrentTrackBlock({
   const { currentTrack, position, isPlaying, connectionStatus } = state;
   const safeTrack = currentTrack as Track;
   const progress = `${formatTime(position)} / ${formatTime(safeTrack.duration)}`;
-  // Strip a "YouTube "-style suffix if present so the title fits the LCD.
-  const shortTitle = safeTrack.title.length > 22
-    ? `${safeTrack.title.slice(0, 21)}…`
-    : safeTrack.title;
-  const shortBy = safeTrack.postedBy.length > 12
-    ? `${safeTrack.postedBy.slice(0, 11)}…`
-    : safeTrack.postedBy;
+  const title = safeTrack.title ?? "";
+  const by = postedByName(safeTrack.postedBy);
+  // Truncate so the title and poster fit the LCD.
+  const shortTitle = title.length > 22 ? `${title.slice(0, 21)}…` : title;
+  const shortBy = by.length > 12 ? `${by.slice(0, 11)}…` : by;
 
   return (
     <div className="tamagotchi-lcd-content" data-testid="current-track">
@@ -568,7 +580,7 @@ export const tamagotchiSkin: Skin = {
     };
 
     return (
-      <div data-skin="tamagotchi" style={wrapperStyle}>
+      <div data-skin="tamagotchi" style={wrapperStyle} key="tamagotchi">
         {/* Connection status — surfaced as required by the shared skin
             contract. Rendered as a small pill above the toy so the
             observable testid exists without disturbing the LCD. */}
@@ -625,9 +637,9 @@ export const tamagotchiSkin: Skin = {
               inbox ({queue.length})
             </h3>
             <ul data-testid="queue" className="tamagotchi-queue-list">
-              {queue.map((track) => (
+              {queue.map((track, i) => (
                 <li
-                  key={track.videoId}
+                  key={`${track.videoId}-${i}`}
                   data-testid="queue-item"
                   data-ad={track.isAd ? "true" : "false"}
                   className="tamagotchi-queue-row"

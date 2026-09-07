@@ -1,9 +1,189 @@
-* {
+/**
+ * /client/src/index.css
+ *
+ * Global design system for Howdy Radio — "Editorial Nostalgia & Playful Warmth"
+ * (see docs/frontend_scope/DESIGN_DIRECTIONS.md).
+ *
+ * Establishes the warm off-white canvas, the low-saturation pastel color
+ * system, expressive typography tokens, and smooth-default element styles.
+ *
+ * Skin stylesheets are scoped under their own class/data-skin selectors and
+ * are unaffected by these global tokens; they override font-family and
+ * background on their own root elements.
+ */
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Design-system custom properties                                            */
+/* ────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ── Warm off-white canvas (buttery cream texture) ──────────────── */
+  --howdy-canvas: #FAF8F5;
+  --howdy-canvas-soft: #F7F5F2;
+
+  /* ── Low-saturation pastel harmony (earthy & muted) ────────────── */
+  /* Gentle sage greens */
+  --howdy-sage:       #B8C9AA;
+  --howdy-sage-deep:  #A3BFA3;
+  /* Warm apricots */
+  --howdy-apricot:    #F0C9A0;
+  --howdy-apricot-deep: #E5B78C;
+  /* Soft periwinkles */
+  --howdy-periwinkle: #C2B8E1;
+  --howdy-periwinkle-deep: #A6A6E3;
+  /* Blush pinks */
+  --howdy-blush:      #F2D2D6;
+  --howdy-blush-deep: #E5B8BF;
+
+  /* ── Richer mid-tone pastel pops (for floating pill badges) ────── */
+  --howdy-pill-periwinkle: #9AA6DC;
+  --howdy-pill-coral:      #E8A1B0;
+  --howdy-pill-amber:      #E5A35B;
+  --howdy-pill-sage:       #8CB88C;
+
+  /* ── Text stack ────────────────────────────────────────────────── */
+  --howdy-text:         #5A5245;
+  --howdy-text-muted:   #8A8275;
+  --howdy-text-strong:  #3A3326;
+
+  /* ── Typography (pairings) ─────────────────────────────────────── */
+  /* Elegant serif — high-contrast, expressive, italic for headings */
+  --howdy-font-serif:  Georgia, 'Times New Roman', Times, serif;
+  /* System sans — clean, warm UI text */
+  --howdy-font-sans:   system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Informal branding & interactive chips — friendly UI sans-serif */
+  --howdy-font-bubble: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* ── Shadows (soft, diffused — never harsh) ──────────────────── */
+  --howdy-shadow-sm:   0 2px 8px  rgba(0, 0, 0, 0.05);
+  --howdy-shadow-md:   0 4px 16px rgba(0, 0, 0, 0.07);
+  --howdy-shadow-lg:   0 8px 28px rgba(0, 0, 0, 0.10);
+  --howdy-shadow-pill: 0 4px 14px rgba(0, 0, 0, 0.12);
+
+  /* ── Spacing & radii ───────────────────────────────────────────── */
+  --howdy-radius-bento: 24px;
+  --howdy-radius-lg:    16px;
+  --howdy-radius-md:    12px;
+  --howdy-radius-pill:  9999px;
+  --howdy-max-content:  520px;
+  --howdy-transition:   0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Reset & base styles                                                      */
+/* ────────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html {
+  /* Disable text-size-adjust zoom on mobile */
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  font-family: system-ui, sans-serif;
+  min-height: 100vh;
+  /* Warm off-white canvas with a subtle buttery cream texture */
+  background: var(--howdy-canvas);
+  background-image:
+    radial-gradient(circle at 18% 28%, rgba(255, 255, 255, 0.45) 0%, transparent 42%),
+    radial-gradient(circle at 82% 72%, rgba(255, 255, 255, 0.35) 0%, transparent 42%);
+  background-attachment: fixed;
+  font-family: var(--howdy-font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--howdy-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100vh;
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Expressive typography pairings                                           */
+/* ────────────────────────────────────────────────────────────────────── */
+
+/* Elegant serif headings — high-contrast, expressive italics */
+.howdy-heading,
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--howdy-font-serif);
+  font-weight: 700;
+  color: var(--howdy-text-strong);
+}
+
+/* Expressive italic variant for headings */
+.howdy-heading--italic,
+h1.italic, h2.italic, h3.italic {
+  font-style: italic;
+}
+
+/* Informal branding — bold */
+.howdy-brand {
+  font-family: var(--howdy-font-bubble);
+  font-weight: 800;
+  font-size: 2.25rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--howdy-text-strong);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Serif body text with expressive italics for editorial feel */
+.howdy-body-text {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--howdy-text);
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Utility: smooth defaults                                                 */
+/* ────────────────────────────────────────────────────────────────────── */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover,
+a:focus-visible {
+  text-decoration: underline;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Smooth transitions for interactive elements */
+.howdy-app *,
+.howdy-app button,
+.howdy-app a {
+  transition: box-shadow var(--howdy-transition), transform 0.15s ease;
+}
+
+/* ────────────────────────────────────────────────────────────────────── */
+/* Responsive helpers                                                       */
+/* ────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .howdy-brand {
+    font-size: 1.75rem;
+  }
+
+  .howdy-body-text {
+    font-size: 0.95rem;
+  }
 }

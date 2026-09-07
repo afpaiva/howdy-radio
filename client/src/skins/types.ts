@@ -16,6 +16,21 @@
 
 import type { ReactElement } from "react";
 
+/* ───────────────────────────── PostedBy ───────────────────────────── */
+
+/**
+ * User info for track attribution.
+ *
+ * The server always provides a `PostedBy` with `id`, `displayName`,
+ * and `realName` (when available). The client may choose which field
+ * to display based on skin design.
+ */
+export interface PostedBy {
+  id: string;
+  displayName: string;
+  realName?: string;
+}
+
 /* ───────────────────────────── Track ───────────────────────────── */
 
 /**
@@ -38,7 +53,7 @@ export interface Track {
    * The Slack user who posted the link, already resolved to a display
    * name per SPEC.md: `display_name`, falling back to `real_name`.
    */
-  postedBy: string;
+  postedBy: PostedBy;
   /** Track duration in seconds (whole seconds). */
   duration: number;
   /**
@@ -121,7 +136,7 @@ export interface ClientToServerEvents {
    * policy and signals "tune in / join broadcast" per SPEC.md (Autoplay
    * Handling). The server may use this to know a client is ready.
    */
-  join: () => void;
+  "join-broadcast": () => void;
 }
 
 /* ──────────────────────── Skin contract ─────────────────────────── */

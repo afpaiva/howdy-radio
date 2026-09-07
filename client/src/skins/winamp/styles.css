@@ -1,0 +1,558 @@
+/**
+ * /client/src/skins/winamp/styles.css
+ *
+ * Visual styling for the Winamp skin.
+ *
+ * Implements the "industrial-meets-skeuomorphic" early-2000s aesthetic
+ * described in `docs/skins_scopes/WINAMP.md`. The skin renders as a
+ * stack of beveled rectangular modules — the main player and equalizer —
+ * each with:
+ *
+ *   - a textured, dark grey / desaturated indigo "chassis" background
+ *   - wide, dark grey beveled outer frames
+ *   - fine "pinstripe" inner edges with highlight + shadow
+ *   - recessed title bars with screen-printed, off-white text
+ *   - inset, deep-black VFD/LED display panes
+ *   - neon/lime green pixelated text on display panes
+ *   - tarnished-brass-yellow fader handles / accents
+ *
+ * Per SPEC.md ("The playlist itself is never shown in the UI"), no
+ * playlist list is rendered — only the player + equalizer modules.
+ *
+ * The skin component imports this file once at module top so Vite
+ * extracts it into the production bundle.
+ */
+
+.winamp-skin {
+  /* ──────── Base palette (per WINAMP.md) ──────── */
+  --winamp-chassis-dark: #2a2d3a;
+  --winamp-chassis-mid: #3a3e4e;
+  --winamp-chassis-light: #4a4f62;
+  --winamp-pinstripe-shadow: #15171f;
+  --winamp-pinstripe-highlight: #6a7080;
+  --winamp-frame-outer: #1a1c25;
+  --winamp-titlebar-bg: #2e3140;
+  --winamp-titlebar-groove-shadow: #0d0e14;
+  --winamp-titlebar-text: #d8d4b8;
+  --winamp-display-bg: #000000;
+  --winamp-display-green: #6cff5a;
+  --winamp-display-green-dim: #2a6b22;
+  --winamp-display-orange-from: #c46a18;
+  --winamp-display-orange-to: #6b350a;
+  --winamp-display-orange-text: #ffe080;
+  --winamp-display-indigo: #2a3a8a;
+  --winamp-brass: #c4a560;
+  --winamp-brass-dark: #8a7040;
+  --winamp-brass-light: #e8d28a;
+  --winamp-rail-shadow: #0a0b10;
+  --winamp-reflection: rgba(255, 255, 255, 0.18);
+
+  font-family: "Lucida Console", "Courier New", monospace;
+  color: var(--winamp-display-green);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 12px;
+  background:
+    radial-gradient(
+      ellipse at center,
+      #1c1e28 0%,
+      #0d0e14 100%
+    );
+  min-height: 100vh;
+}
+
+/* ──────── Module frame (player + EQ share this) ──────── */
+
+.winamp-module {
+  width: 100%;
+  max-width: 360px;
+  background:
+    /* micro-noise texture approximation via layered gradients */
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.018) 0px,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 1px,
+      transparent 2px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.05) 0px,
+      rgba(0, 0, 0, 0.05) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    linear-gradient(
+      180deg,
+      var(--winamp-chassis-light) 0%,
+      var(--winamp-chassis-mid) 40%,
+      var(--winamp-chassis-dark) 100%
+    );
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow:
+    /* outer dark frame (the wide bevel) */
+    inset 0 0 0 1px var(--winamp-frame-outer),
+    inset 0 0 0 2px var(--winamp-chassis-light),
+    /* pinstripe inner edge */
+    inset 0 0 0 3px var(--winamp-pinstripe-shadow),
+    inset 0 0 0 4px var(--winamp-pinstripe-highlight),
+    /* drop shadow under the whole module */
+    0 4px 10px rgba(0, 0, 0, 0.7),
+    0 1px 0 var(--winamp-reflection);
+  position: relative;
+}
+
+/* ──────── Title bar ──────── */
+
+.winamp-titlebar {
+  background: linear-gradient(
+    180deg,
+    var(--winamp-chassis-light) 0%,
+    var(--winamp-titlebar-bg) 50%,
+    var(--winamp-frame-outer) 100%
+  );
+  padding: 3px 8px;
+  margin: 2px 4px 4px;
+  text-align: center;
+  /* recessed groove: dark shadow on top, highlight on bottom */
+  box-shadow:
+    inset 0 1px 0 var(--winamp-pinstripe-highlight),
+    inset 0 2px 3px var(--winamp-titlebar-groove-shadow),
+    inset 0 -1px 0 var(--winamp-pinstripe-shadow);
+  border-radius: 2px;
+  position: relative;
+}
+
+.winamp-titlebar::after {
+  /* long, thin horizontal glossy reflection along the bevel */
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--winamp-reflection) 20%,
+    var(--winamp-reflection) 80%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.winamp-titlebar-text {
+  font-family: "Tahoma", "MS Sans Serif", sans-serif;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--winamp-titlebar-text);
+  text-shadow: 1px 1px 0 var(--winamp-titlebar-groove-shadow);
+}
+
+/* ──────── Display panes (VFD/LED style) ──────── */
+
+.winamp-display {
+  background: var(--winamp-display-bg);
+  margin: 4px 8px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  /* sharp inner bevel: highlight on top-left, shadow on bottom-right */
+  box-shadow:
+    inset 1px 1px 0 var(--winamp-pinstripe-highlight),
+    inset -1px -1px 0 var(--winamp-pinstripe-shadow),
+    inset 0 0 0 1px var(--winamp-frame-outer);
+  position: relative;
+  overflow: hidden;
+}
+
+.winamp-display::before {
+  /* faint horizontal scanline / reflection on the glass */
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 100%
+  );
+}
+
+.winamp-display-text {
+  font-family: "Lucida Console", "Courier New", monospace;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--winamp-display-green);
+  text-shadow: 0 0 4px rgba(108, 255, 90, 0.55);
+  letter-spacing: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.winamp-display-text-dim {
+  color: var(--winamp-display-green-dim);
+  text-shadow: none;
+}
+
+.winamp-display-orange {
+  background: linear-gradient(
+    180deg,
+    var(--winamp-display-orange-from) 0%,
+    var(--winamp-display-orange-to) 100%
+  );
+}
+
+.winamp-display-orange .winamp-display-text {
+  color: var(--winamp-display-orange-text);
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.winamp-display-indigo {
+  border: 1px solid var(--winamp-display-indigo);
+}
+
+/* ──────── Player controls row ──────── */
+
+.winamp-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 10px 8px;
+}
+
+.winamp-btn {
+  /* raised bevel button */
+  background: linear-gradient(
+    180deg,
+    var(--winamp-chassis-light) 0%,
+    var(--winamp-chassis-mid) 100%
+  );
+  border: none;
+  border-radius: 2px;
+  padding: 4px 8px;
+  min-width: 32px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--winamp-titlebar-text);
+  text-shadow: 1px 1px 0 var(--winamp-pinstripe-shadow);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 var(--winamp-pinstripe-highlight),
+    inset 0 -1px 0 var(--winamp-pinstripe-shadow),
+    0 1px 0 var(--winamp-frame-outer);
+}
+
+.winamp-btn:hover {
+  background: linear-gradient(
+    180deg,
+    var(--winamp-chassis-light) 0%,
+    var(--winamp-chassis-light) 100%
+  );
+}
+
+.winamp-btn:active {
+  /* pressed: invert bevel */
+  box-shadow:
+    inset 0 1px 2px var(--winamp-pinstripe-shadow),
+    inset 0 -1px 0 var(--winamp-pinstripe-highlight);
+  background: var(--winamp-chassis-dark);
+}
+
+.winamp-playstate {
+  font-family: "Lucida Console", monospace;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--winamp-display-green);
+  text-shadow: 0 0 4px rgba(108, 255, 90, 0.55);
+}
+
+/* ──────── Position / progress bar (segmented LEDs) ──────── */
+
+.winamp-progress {
+  display: flex;
+  gap: 1px;
+  margin: 4px 8px 6px;
+  padding: 2px;
+  background: var(--winamp-display-bg);
+  border-radius: 1px;
+  box-shadow:
+    inset 1px 1px 0 var(--winamp-pinstripe-highlight),
+    inset -1px -1px 0 var(--winamp-pinstripe-shadow);
+}
+
+.winamp-progress-seg {
+  flex: 1;
+  height: 6px;
+  background: var(--winamp-display-green-dim);
+  opacity: 0.35;
+}
+
+.winamp-progress-seg-on {
+  background: var(--winamp-display-green);
+  opacity: 1;
+  box-shadow: 0 0 3px rgba(108, 255, 90, 0.6);
+}
+
+/* ──────── Equalizer ──────── */
+
+.winamp-eq-bands {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 8px 10px;
+  height: 110px;
+  background:
+    radial-gradient(
+      ellipse at center,
+      #050608 0%,
+      #000000 100%
+    );
+  margin: 4px 8px;
+  border-radius: 2px;
+  box-shadow:
+    inset 1px 1px 0 var(--winamp-pinstripe-highlight),
+    inset -1px -1px 0 var(--winamp-pinstripe-shadow),
+    inset 0 0 0 1px var(--winamp-frame-outer);
+}
+
+.winamp-eq-band {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+}
+
+.winamp-eq-seg {
+  width: 100%;
+  height: 3px;
+  background: var(--winamp-display-green-dim);
+  opacity: 0.25;
+}
+
+.winamp-eq-seg-on {
+  background: var(--winamp-display-green);
+  opacity: 1;
+  box-shadow: 0 0 2px rgba(108, 255, 90, 0.7);
+}
+
+.winamp-eq-seg-peak {
+  background: var(--winamp-display-orange-from);
+  opacity: 1;
+  box-shadow: 0 0 3px rgba(196, 106, 24, 0.8);
+}
+
+/* ──────── Equalizer faders ──────── */
+
+.winamp-eq-faders {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 10px 10px 12px;
+}
+
+.winamp-eq-fader {
+  flex: 1;
+  height: 70px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+/* the carved-out slot the handle slides in */
+.winamp-eq-fader-rail {
+  width: 4px;
+  height: 100%;
+  background: var(--winamp-rail-shadow);
+  border-radius: 2px;
+  position: relative;
+  box-shadow:
+    inset 1px 1px 2px rgba(0, 0, 0, 0.9),
+    inset -1px -1px 1px rgba(106, 112, 128, 0.3);
+}
+
+.winamp-eq-fader-handle {
+  /* tarnished brass fader handle */
+  position: absolute;
+  left: 50%;
+  width: 18px;
+  height: 10px;
+  margin-left: -9px;
+  background: linear-gradient(
+    180deg,
+    var(--winamp-brass-light) 0%,
+    var(--winamp-brass) 50%,
+    var(--winamp-brass-dark) 100%
+  );
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    0 1px 2px rgba(0, 0, 0, 0.6);
+  transform: translateY(-50%);
+}
+
+.winamp-eq-fader-label {
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Lucida Console", monospace;
+  font-size: 8px;
+  color: var(--winamp-display-green-dim);
+  letter-spacing: 0;
+}
+
+/* ──────── Track title marquee ──────── */
+
+.winamp-marquee {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.winamp-marquee-text {
+  display: inline-block;
+  padding-left: 100%;
+  animation: winamp-marquee 18s linear infinite;
+  will-change: transform;
+}
+
+@keyframes winamp-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+/* ──────── Meta line (kbps / kHz / stereo indicators) ──────── */
+
+.winamp-meta-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px 6px;
+  font-family: "Lucida Console", monospace;
+  font-size: 10px;
+  color: var(--winamp-display-green-dim);
+}
+
+.winamp-meta-on {
+  color: var(--winamp-display-green);
+  text-shadow: 0 0 3px rgba(108, 255, 90, 0.5);
+}
+
+/* ──────── Idle state (no current track) ──────── */
+
+.winamp-idle {
+  padding: 10px 8px;
+  font-family: "Lucida Console", monospace;
+  font-size: 11px;
+  color: var(--winamp-display-green-dim);
+  text-align: center;
+}
+
+/* ──────── Connection status panel ──────── */
+
+.winamp-connection {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-family: "Lucida Console", monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--winamp-display-green-dim);
+}
+
+.winamp-connection-glyph {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.winamp-connection-label {
+  text-transform: uppercase;
+}
+
+/* ──────── Position block ──────── */
+
+.winamp-position-block {
+  position: relative;
+}
+
+.winamp-position-text {
+  /* Visually hidden but available to assistive tech / contract tests. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ──────── Now-playing track-title hidden h1 ──────── */
+
+.winamp-track-title-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ──────── Queue list ──────── */
+
+.winamp-queue {
+  padding-bottom: 6px;
+}
+
+.winamp-queue-list {
+  list-style: none;
+  margin: 4px 8px;
+  padding: 6px 8px;
+  background: var(--winamp-display-bg);
+  border-radius: 2px;
+  box-shadow:
+    inset 1px 1px 0 var(--winamp-pinstripe-highlight),
+    inset -1px -1px 0 var(--winamp-pinstripe-shadow),
+    inset 0 0 0 1px var(--winamp-frame-outer);
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.winamp-queue-item {
+  font-family: "Lucida Console", monospace;
+  font-size: 11px;
+  color: var(--winamp-display-green);
+  padding: 2px 0;
+  border-bottom: 1px dotted rgba(108, 255, 90, 0.15);
+}
+
+.winamp-queue-item:last-child {
+  border-bottom: none;
+}
+
+.winamp-queue-item-ad {
+  color: var(--winamp-display-orange-text);
+}
