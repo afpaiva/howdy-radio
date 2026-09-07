@@ -18,7 +18,7 @@ jobs:
         working-directory: ./client
         env:
           # Injeta a variável no momento do build
-          VITE_WS_URL: ${{ secrets.VITE_WS_URL }}
+          VITE_WS_URL: ${{ vars.VITE_WS_URL }}
         run: |
           bun install
           bun run build
