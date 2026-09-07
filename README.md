@@ -5,7 +5,7 @@
 
   **A synchronized internal radio station, built from the songs your team already shares in Slack.**
 
-  🔴 **Live demo:** [howdy-radio-app.web.app](https://howdy-radio-app.web.app/)
+  🟢 **Live demo:** [howdy-radio-app.web.app](https://howdy-radio-app.web.app/)
 </div>
 
 ---
