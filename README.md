@@ -1,3 +1,10 @@
+
+<div align="center">
+  Built with 🎙️ for the Howdy team.
+</div>
+
+---
+
 <div align="center">
   <img width="300" alt="Howdy Radio logo" src="https://github.com/user-attachments/assets/9f7c1576-3e86-41f6-b0a5-c9872c5c39d8" />
 
@@ -129,8 +136,3 @@ This project was built for Howdy's Dev Day 2026 Agentic Software Engineering Hac
 - [`SYSTEM.md`](./docs/SYSTEM.md) — agent roles, context engineering, orchestration, parallel work, and the harness/autonomous-loop evidence
 - [`AI_DEV_LOG.md`](./docs/AI_DEV_LOG.md) — the real, chronological build log: iterations, bugs found and fixed, and the human decisions along the way
 
----
-
-<div align="center">
-  Built with 🎙️ for the Howdy team.
-</div>
