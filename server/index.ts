@@ -113,6 +113,17 @@ const wsHandler = new WsHandler(io, conductor, slackService, youtubeService);
  * Main request handler — routes to auth, health, or static file serving.
  */
 function handleRequest(req: any, res: any): void {
+  //! Allow CORS for demo purposes
+  res.setHeader("Access-Control-Allow-Origin", "https://howdy-radio-app.web.app");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   // Handle POST /auth/login
   if (req.method === "POST" && req.url === "/auth/login") {
     handleAuthLogin(req, res);
