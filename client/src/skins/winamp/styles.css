@@ -336,9 +336,14 @@
   gap: 1px;
 }
 
+/* A segment fills its container's column slice (so the 16-segment trail
+   spans the full band height and the animated fill's segments scale with
+   the fill). The fixed 3px base is retained only as a minimum. */
 .winamp-eq-seg {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 2px;
   width: 100%;
-  height: 3px;
   background: var(--winamp-display-green-dim);
   opacity: 0.25;
 }
@@ -353,6 +358,28 @@
   background: var(--winamp-display-orange-from);
   opacity: 1;
   box-shadow: 0 0 3px rgba(196, 106, 24, 0.8);
+}
+
+/* Animated lit fill overlay. Bottom-aligned; its height is driven by the
+   `--h` custom property (0..1) which the component nudges on an interval.
+   A CSS `transition` on height performs the smooth rise/fall — no JS frame
+   work is required while playing. */
+.winamp-eq-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--h, 0.05) * 100%);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+  transition: height 150ms ease-out;
+}
+
+/* Keep the fill's segments filling the fill height (overriding the base min). */
+.winamp-eq-fill .winamp-eq-seg {
+  min-height: 0;
 }
 
 /* ──────── Equalizer faders ──────── */
