@@ -23,6 +23,7 @@
  * it only renders the {@link PlaybackState} handed to it.
  */
 
+import { useEffect, useMemo, useRef } from "react";
 import type { ReactElement, ReactNode } from "react";
 import type { PlaybackState, Skin, Track } from "../types";
 import "./styles.css";
@@ -56,6 +57,25 @@ function connectionLabel(status: PlaybackState["connectionStatus"]): string {
 /** Capitalize the first letter (e.g. "playing" -> "Playing"). */
 function titleCase(s: string): string {
   return s.length === 0 ? s : s[0].toUpperCase() + s.slice(1);
+}
+
+/* ──────────────── Lightweight fake-VU math ──────────────── */
+
+/**
+ * Deterministic module-local PRNG (xorshift32).
+ *
+ * The real audio plays through a cross-origin YouTube iframe, so the Web
+ * Audio API cannot read its frequency data. The visualizer therefore
+ * synthesizes a believable, pseudo-rhythmic signal. The PRNG is seeded
+ * from the (stable) band index and a monotonically increasing tick so the
+ * motion is varied but reproducible and allocation-free on the hot path.
+ */
+function prng(seed: number): number {
+  let x = (seed * 0x9e370001) & 0x7fffffff;
+  x ^= x << 13;
+  x ^= x >>> 17;
+  x ^= x << 5;
+  return (x & 0x7fffffff) / 0x7fffffff;
 }
 
 /* ──────────────────────── Sub-components ─────────────────────────── */
@@ -137,39 +157,110 @@ function PositionBlock({
   );
 }
 
-/** Equalizer spectrum visualizer — synthetic bars driven by isPlaying. */
+/**
+ * Equalizer spectrum visualizer — a continuously animating, fake-VU meter.
+ *
+ * The real audio plays through a cross-origin YouTube iframe, so the Web
+ * Audio API cannot access its frequency data. Rather than render static
+ * bars or apologize for that, this synthesizes a believable, pseudo-rhythmic
+ * animation: while playback is active each band rises and falls toward new,
+ * randomized target heights on a ~260ms interval.
+ *
+ * The interval itself only nudges a CSS custom property (`--h`) per band;
+ * the actual motion is performed by a CSS `transition` on the fill height,
+ * so there is no per-frame JS work and no React re-render while playing.
+ * When paused or disconnected, the interval never runs and the bars settle
+ * to a low, flat idle height.
+ */
 function EqualizerSpectrum({
-  isPlaying,
+  isActive,
 }: {
-  isPlaying: boolean;
+  isActive: boolean;
 }): ReactElement {
-  // 14 bands, each with a synthetic 16-segment height driven by index +
-  // a pseudo-random factor. Stable across re-renders of the same tick.
   const bands = 14;
   const segs = 16;
-  const bandsArr = Array.from({ length: bands }, (_, i) => {
-    // Center-weighted pattern so middle bands are taller (V-shape in EQ).
-    const centerWeight = 1 - Math.abs(i - bands / 2) / (bands / 2);
-    const seed = (i * 9301 + 49297) % 233280;
-    const rand = seed / 233280;
-    const base = isPlaying ? centerWeight * 0.6 + rand * 0.4 : 0.05;
-    return Math.max(1, Math.floor(base * segs));
-  });
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Stable per-band "frequency response" shape: a center-weighted V-curve
+  // plus a deterministic pseudo-random bias. This is pure layout math — it
+  // describes the EQ curve, not any playback-derived signal.
+  const cfg = useMemo(
+    () =>
+      Array.from({ length: bands }, (_, i) => {
+        const centerWeight = 1 - Math.abs(i - (bands - 1) / 2) / ((bands - 1) / 2);
+        const rand = prng(i * 2654435761);
+        return {
+          // Active peak height fraction (0..1) while playing.
+          peak: 0.28 + centerWeight * 0.62 + rand * 0.08,
+          // Idle height fraction while paused / disconnected.
+          idle: 0.04 + rand * 0.03,
+        };
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    const fills = root.querySelectorAll<HTMLDivElement>(".winamp-eq-fill");
+    if (fills.length === 0) return;
+
+    /** Write a height fraction (0..1) to every band's fill, clamped. */
+    const setHeights = (fracs: number[]) => {
+      fills.forEach((fill, i) => {
+        const h = Number.isFinite(fracs[i])
+          ? Math.min(1, Math.max(0, fracs[i]))
+          : 0.05;
+        fill.style.setProperty("--h", String(h));
+      });
+    };
+
+    if (!isActive) {
+      // Paused / disconnected: settle to a low, flat idle. No timer.
+      setHeights(cfg.map((c) => c.idle));
+      return;
+    }
+
+    // Playing: periodically nudge each bar toward a new pseudo-random target.
+    // CSS transitions smooth the move — this loop only sets targets.
+    let tick = 0;
+    const onTick = () => {
+      tick += 1;
+      const fracs = cfg.map((c, i) => {
+        const r = prng(i * 103 + tick * 1013);
+        // Band-local sine walk + jitter → organic, never in lockstep.
+        const wave = 0.5 + 0.5 * Math.sin(tick * 0.6 + i * 0.85 + r * 3);
+        return c.idle + (c.peak - c.idle) * (0.35 + 0.65 * wave);
+      });
+      setHeights(fracs);
+    };
+    onTick();
+    const id = setInterval(onTick, 260);
+    return () => clearInterval(id);
+  }, [isActive, cfg]);
 
   return (
-    <div className="winamp-eq-bands" data-testid="spectrum">
-      {bandsArr.map((filled, i) => (
+    <div className="winamp-eq-bands" data-testid="spectrum" ref={containerRef}>
+      {cfg.map((_c, i) => (
         <div key={i} className="winamp-eq-band" aria-hidden="true">
-          {Array.from({ length: segs }, (_, j) => {
-            const isOn = j < filled;
-            const isPeak = j === filled - 1 && isOn && i % 3 === 0;
-            const cls = isPeak
-              ? "winamp-eq-seg winamp-eq-seg-peak"
-              : isOn
-                ? "winamp-eq-seg winamp-eq-seg-on"
-                : "winamp-eq-seg";
-            return <div key={j} className={cls} />;
-          })}
+          {/* Dim inactive trail: the full column of segments. */}
+          {Array.from({ length: segs }, (_, j) => (
+            <div key={`t${i}-${j}`} className="winamp-eq-seg" />
+          ))}
+          {/* Animated lit fill: bottom-aligned, height driven by --h. Its
+              top segment (the orange peak) rises and falls with the bar. */}
+          <div className="winamp-eq-fill">
+            {Array.from({ length: segs }, (_, j) => (
+              <div
+                key={`f${i}-${j}`}
+                className={
+                  j === segs - 1
+                    ? "winamp-eq-seg winamp-eq-seg-on winamp-eq-seg-peak"
+                    : "winamp-eq-seg winamp-eq-seg-on"
+                }
+              />
+            ))}
+          </div>
         </div>
       ))}
     </div>
@@ -375,7 +466,9 @@ function NoTrack(): ReactElement {
 /* ──────────────────────── Equalizer module ────────────────────────── */
 
 function Equalizer({ state }: { state: PlaybackState }): ReactElement {
-  const { isPlaying } = state;
+  // The visualizer only animates while playing and reachable; when paused
+  // or disconnected the bars settle to a flat idle state.
+  const isActive = state.isPlaying && state.connectionStatus !== "disconnected";
   // Fixed EQ band labels — purely decorative per the design doc.
   const labels = ["60", "170", "310", "600", "1K", "3K", "6K", "12K", "14K"];
   // Slight V-shape pattern for the fader positions.
@@ -383,7 +476,7 @@ function Equalizer({ state }: { state: PlaybackState }): ReactElement {
     <div className="winamp-module" data-testid="equalizer">
       <TitleBar text="Winamp Equalizer" />
 
-      <EqualizerSpectrum isPlaying={isPlaying} />
+      <EqualizerSpectrum isActive={isActive} />
 
       <div className="winamp-eq-faders">
         {labels.map((label, i) => {
