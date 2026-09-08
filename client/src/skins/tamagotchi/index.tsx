@@ -17,7 +17,7 @@
  * with no skin-specific required props.
  */
 
-import type { CSSProperties, ReactElement } from "react";
+import { type CSSProperties, type ReactElement, useState } from "react";
 import type { PlaybackState, Skin, Track } from "../types";
 import "./styles.css";
 
@@ -63,21 +63,90 @@ function postedByName(postedBy: Track["postedBy"] | string | undefined): string 
 }
 
 /**
- * Build the 90s handheld-pet sprite:
- *  - Big rounded head with droopy ears (when idle)
- *  - Mouth opens/closes with the play/pause state
- *  - Eyes blink by frame index
+ * Tiny pixel-art "love" heart, drawn with the same coarse black-on-olive
+ * language as the rest of the LCD. Reused as the ephemeral click reaction.
+ */
+function HeartIcon(): ReactElement {
+  // 6×6 pixel grid (pointed-down heart), upscaled via the --tg-heart-pixel.
+  const P = 1;
+  const cells: [number, number][] = [
+    [2, 0], [3, 0],
+    [1, 1], [4, 1],
+    [0, 2], [5, 2],
+    [0, 3], [2, 3], [3, 3], [5, 3],
+    [1, 4], [2, 4], [3, 4], [4, 4],
+    [2, 5], [3, 5],
+  ];
+  return (
+    <svg
+      viewBox="0 0 6 6"
+      shapeRendering="crispEdges"
+      aria-hidden="true"
+    >
+      {cells.map(([x, y], i) => (
+        <rect key={i} x={x * P} y={y * P} width={P} height={P} fill={PALETTE.pixelBlack} />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * Floating "Z" zzz puff shown when the pet is asleep (disconnected).
+ * Drawn in the same monochrome pixel language as the sprite.
+ */
+function ZzzIcon(): ReactElement {
+  const P = 1;
+  // A 3×4 pixel "Z": top bar, diagonal, bottom bar.
+  const cells: [number, number][] = [
+    [0, 0], [1, 0], [2, 0],
+    [2, 1],
+    [1, 2],
+    [0, 3], [1, 3], [2, 3],
+  ];
+  return (
+    <svg
+      viewBox="0 0 3 4"
+      shapeRendering="crispEdges"
+      aria-hidden="true"
+    >
+      {cells.map(([x, y], i) => (
+        <rect key={i} x={x * P} y={y * P} width={P} height={P} fill={PALETTE.pixelBlack} />
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * Interactive pixel-art pet sprite.
  *
- * Rendered as inline SVG so each "pixel" is a sharp `<rect>`, no
- * antialiasing — matches the LCD aesthetic exactly.
+ * Presentation-only: the pet's expression reacts to the already-received
+ * `isPlaying` + `connectionStatus` values (no new server-driven state is
+ * introduced). The idle life (blinking + breathing) is driven entirely by
+ * CSS animations so it keeps running without JS re-renders; playback state
+ * only swaps which animation plays and what the mouth/mood looks like.
+ *
+ * Clicking/tapping is purely cosmetic and lives in local component state —
+ * it never reaches the server and is never persisted.
  */
 function PetSprite({
   isPlaying,
-  blink,
+  connectionStatus,
 }: {
   isPlaying: boolean;
-  blink: boolean;
+  connectionStatus: PlaybackState["connectionStatus"];
 }): ReactElement {
+  // Ephemeral, client-only mood — never sent to the server, never persisted.
+  const [isPoked, setIsPoked] = useState(false);
+
+  // Derive a presentation-only mode from existing PlaybackState values.
+  const mode: "playing" | "paused" | "disconnected" =
+    connectionStatus === "disconnected"
+      ? "disconnected"
+      : isPlaying
+        ? "playing"
+        : "paused";
+  const isSleeping = mode === "disconnected";
+
   // 24×24 logical pixel grid; "pixelSize" scales the sprite.
   const P = 4; // logical pixel size
   const W = 24;
@@ -117,51 +186,133 @@ function PetSprite({
     [5, 12], [18, 12],
   ];
 
-  // Eyes (square dots). When blinking, a single line of pixels per eye.
-  const eyes: Cell[] = blink
-    ? [
-        [7, 8], [8, 8], [9, 8],
-        [14, 8], [15, 8], [16, 8],
-      ]
-    : [
-        [7, 7], [8, 7], [9, 7],
-        [14, 7], [15, 7], [16, 7],
-      ];
+  // Eyes are rendered as two stacked layers so a CSS blink animation can
+  // cross-fade open↔closed without any JS re-render. Awake pets blink on a
+  // timer; a sleeping (disconnected) pet keeps its lids shut.
+  const eyesOpen: Cell[] = [
+    [7, 7], [8, 7], [9, 7],
+    [14, 7], [15, 7], [16, 7],
+  ];
+  const eyesClosed: Cell[] = [
+    [7, 8], [8, 8], [9, 8],
+    [14, 8], [15, 8], [16, 8],
+  ];
 
-  // Mouth: open when playing, closed when paused.
-  const mouth: Cell[] = isPlaying
-    ? [
-        [9, 13], [10, 13], [11, 13], [12, 13], [13, 13], [14, 13],
-        [9, 14], [14, 14],
-        [9, 15], [14, 15],
-        [10, 16], [11, 16], [12, 16], [13, 16],
-      ]
-    : [
-        [10, 14], [11, 14], [12, 14], [13, 14],
-      ];
+  // Mouth: open "O" when singing, a closed line otherwise.
+  const mouth: Cell[] =
+    mode === "playing"
+      ? [
+          [9, 13], [10, 13], [11, 13], [12, 13], [13, 13], [14, 13],
+          [9, 14], [14, 14],
+          [9, 15], [14, 15],
+          [10, 16], [11, 16], [12, 16], [13, 16],
+        ]
+      : [
+          [10, 14], [11, 14], [12, 14], [13, 14],
+        ];
 
-  const cells: Cell[] = [...head, ...ears, ...eyes, ...mouth, ...cheeks];
+  const spriteCells = [...head, ...ears, ...mouth, ...cheeks];
 
   return (
-    <svg
-      viewBox={`0 0 ${W * P} ${H * P}`}
-      width={W * P}
-      height={H * P}
-      shapeRendering="crispEdges"
-      role="img"
-      aria-label={isPlaying ? "Pet singing" : "Pet resting"}
+    <div
+      className={[
+        "tamagotchi-pet-frame",
+        `tamagotchi-pet--${mode}`,
+        isPoked ? "tamagotchi-pet--poked" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
-      {cells.map(([x, y], i) => (
-        <rect
-          key={i}
-          x={x * P}
-          y={y * P}
-          width={P}
-          height={P}
-          fill={PALETTE.pixelBlack}
-        />
-      ))}
-    </svg>
+      <button
+        type="button"
+        className="tamagotchi-pet-button"
+        onClick={() => setIsPoked(true)}
+        aria-label={`Pet the tamagotchi — ${mode === "playing" ? "singing" : isSleeping ? "sleeping" : "resting"}`}
+      >
+        <svg
+          className="tamagotchi-pet-sprite"
+          viewBox={`0 0 ${W * P} ${H * P}`}
+          width={W * P}
+          height={H * P}
+          shapeRendering="crispEdges"
+          role="img"
+          aria-hidden="true"
+        >
+          {spriteCells.map(([x, y], i) => (
+            <rect
+              key={i}
+              x={x * P}
+              y={y * P}
+              width={P}
+              height={P}
+              fill={PALETTE.pixelBlack}
+            />
+          ))}
+          {isSleeping ? (
+            // Sleeping: lids shut, no blink — static.
+            <g className="tamagotchi-pet-eyes-sleeping">
+              {eyesClosed.map(([x, y], i) => (
+                <rect
+                  key={`sz-${i}`}
+                  x={x * P}
+                  y={y * P}
+                  width={P}
+                  height={P}
+                  fill={PALETTE.pixelBlack}
+                />
+              ))}
+            </g>
+          ) : (
+            // Awake: blink via two layers cross-fading in CSS.
+            <g>
+              <g className="tamagotchi-pet-eyes-open">
+                {eyesOpen.map(([x, y], i) => (
+                  <rect
+                    key={`eo-${i}`}
+                    x={x * P}
+                    y={y * P}
+                    width={P}
+                    height={P}
+                    fill={PALETTE.pixelBlack}
+                  />
+                ))}
+              </g>
+              <g className="tamagotchi-pet-eyes-closed">
+                {eyesClosed.map(([x, y], i) => (
+                  <rect
+                    key={`ec-${i}`}
+                    x={x * P}
+                    y={y * P}
+                    width={P}
+                    height={P}
+                    fill={PALETTE.pixelBlack}
+                  />
+                ))}
+              </g>
+            </g>
+          )}
+        </svg>
+      </button>
+
+      {/* Ephemeral affection: a heart pops up on click and floats away.
+          The whole reaction is local state — it never touches playback. */}
+      {isPoked && (
+        <div
+          className="tamagotchi-pet-heart"
+          onAnimationEnd={() => setIsPoked(false)}
+          aria-hidden="true"
+        >
+          <HeartIcon />
+        </div>
+      )}
+
+      {/* Sleep bubble: a drifting "Z" while disconnected. */}
+      {isSleeping && (
+        <div className="tamagotchi-pet-zzz" aria-hidden="true">
+          <ZzzIcon />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -360,7 +511,7 @@ function ShellDecor(): ReactElement {
       />
       {/* Right lightning bolt */}
       <path
-        d="M170 50 L152 50 L164 82 L148 82 L180 140 L164 100 L180 100 Z"
+        d="M170 60 L152 60 L164 92 L148 92 L180 150 L164 110 L180 110 Z"
         fill={PALETTE.shellYellow}
         stroke={PALETTE.shellPinkDeep}
         strokeWidth="1"
@@ -472,7 +623,7 @@ function CurrentTrackBlock({
 
       <div className="tamagotchi-screen-middle">
         <div className="tamagotchi-pet">
-          <PetSprite isPlaying={isPlaying} blink={blink} />
+          <PetSprite isPlaying={isPlaying} connectionStatus={connectionStatus} />
         </div>
 
         <div className="tamagotchi-track-info">
@@ -531,7 +682,7 @@ function IdleBlock({
       />
       <div className="tamagotchi-screen-middle">
         <div className="tamagotchi-pet">
-          <PetSprite isPlaying={false} blink={blink} />
+          <PetSprite isPlaying={false} connectionStatus={connectionStatus} />
         </div>
         <div className="tamagotchi-track-info">
           <div className="tamagotchi-title" data-testid="no-track">
