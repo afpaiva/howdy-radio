@@ -25,7 +25,7 @@ import jwt from "jsonwebtoken";
 // NOTE: the env var must be AUTH_JWT_SECRET to match the .env file — using
 // a different name causes a new random secret on every server restart,
 // invalidating all previously issued session cookies.
-const JWT_SECRET = process.env.AUTH_JWT_SECRET ||"_secret_";
+const JWT_SECRET = process.env.AUTH_JWT_SECRET || "_secret_";
 const JWT_EXPIRES_IN = "24h";
 
 // Resolve the client dist directory (sibling of server/)
@@ -103,6 +103,7 @@ const httpServer = createServer((req, res) => {
 const io = new Server(httpServer, {
   cors: {
     origin: "*",
+    credentials: true,
   },
 });
 
@@ -113,6 +114,20 @@ const wsHandler = new WsHandler(io, conductor, slackService, youtubeService);
  * Main request handler — routes to auth, health, or static file serving.
  */
 function handleRequest(req: any, res: any): void {
+  if (process.env.NODE_ENV === "development") {
+    res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+  }
+
   // Handle POST /auth/login
   if (req.method === "POST" && req.url === "/auth/login") {
     handleAuthLogin(req, res);
@@ -309,7 +324,7 @@ async function refreshPlaylist(): Promise<void> {
       youtubeService.fetchShorts(),
     ]);
 
-   // Fetch real video metadata (duration + title) for Slack-sourced tracks.
+    // Fetch real video metadata (duration + title) for Slack-sourced tracks.
     // In mock mode, tracks already have correct durations and titles from seed data.
     // In production mode, tracks have duration: 0 and title set to the raw URL.
     const tracksNeedingMetadata = tracks.filter((t) => t.duration === 0);
