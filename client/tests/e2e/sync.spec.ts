@@ -33,7 +33,22 @@ async function login(page: Page): Promise<void> {
   // Submit
   await page.click('button:has-text("Sign in")');
 
-  // Wait for the tune-in gate to appear (login succeeded, socket connecting)
+  // Wait for either the connecting phase or the tune-in gate
+  // The connecting phase may be too fast to catch, so we race both
+  await Promise.race([
+    page.locator('[data-testid="connecting"]').waitFor({ state: 'visible', timeout: 15000 }),
+    page.locator('[data-testid="tune-in"]').waitFor({ state: 'visible', timeout: 15000 }),
+  ]);
+
+  // If connecting appeared, wait for it to disappear
+  const connectingVisible = await page.locator('[data-testid="connecting"]').isVisible().catch(() => false);
+  if (connectingVisible) {
+    await expect(page.locator('[data-testid="connecting"]')).not.toBeVisible({
+      timeout: 15000,
+    });
+  }
+
+  // Wait for the tune-in gate to appear (login succeeded, socket connected)
   await expect(page.locator('[data-testid="tune-in"]')).toBeVisible({
     timeout: 15000,
   });
@@ -92,10 +107,7 @@ test.describe('Authentication gate', () => {
   });
 
   test('accepts @howdy.com email and grants access', async ({ page }) => {
-    await page.goto('/');
-
-    await page.fill('input[type="email"]', TEST_EMAIL);
-    await page.click('button:has-text("Sign in")');
+    await login(page);
 
     // Should now see the tune-in gate (authenticated)
     await expect(page.locator('[data-testid="tune-in"]')).toBeVisible({
@@ -108,12 +120,7 @@ test.describe('Authentication gate', () => {
 
   test('refresh preserves session (no login form shown)', async ({ page }) => {
     // Log in
-    await page.goto('/');
-    await page.fill('input[type="email"]', TEST_EMAIL);
-    await page.click('button:has-text("Sign in")');
-    await expect(page.locator('[data-testid="tune-in"]')).toBeVisible({
-      timeout: 15000,
-    });
+    await login(page);
 
     // Refresh the page
     await page.reload();

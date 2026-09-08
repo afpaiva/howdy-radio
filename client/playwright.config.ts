@@ -22,11 +22,15 @@ export default defineConfig({
     },
   ],
   // Start both the server (mock mode) and the Vite dev server.
+  // The server needs CORS headers (NODE_ENV=development) for the browser to
+  // make cross-origin auth requests from port 3003 to port 3000.
+  // Use a custom healthCheck that sends an Origin header to avoid the server's
+  // CORS bug (crashes when req.headers.origin is undefined).
   webServer: [
     {
       command: 'bun index.ts',
       cwd: resolve(__dirname, '../server'),
-      url: 'http://localhost:3000/health',
+      healthCheck: 'curl -H "Origin: http://localhost:3003" http://localhost:3000/health',
       reuseExistingServer: !process.env.CI,
       timeout: 60000,
     },
