@@ -2,7 +2,7 @@
 name: skin-implementer
 description: Implements isolated UI modules conforming strictly to a shared interface
 mode: primary
-model: openrouter/minimax/minimax-m3:free
+model: openrouter/poolside/laguna-s-2.1:free
 permissions:
   edit: allow
   bash: ask

@@ -191,12 +191,43 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* positioning context for the floating heart / sleep "Z" */
+  position: relative;
 }
 
-.tamagotchi-pet svg {
+/* The sprite svg — sized as before; the click wrapper is the button. */
+.tamagotchi-pet-sprite {
   width: 64px;
   height: 64px;
   image-rendering: pixelated;
+}
+
+/* Clickable pet: transparent button that hugs the sprite size. */
+.tamagotchi-pet-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  /* don't let the button intercept the sprite's pixel rendering */
+  image-rendering: pixelated;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tamagotchi-pet-button:focus-visible {
+  outline: 2px solid var(--tg-shell-pink);
+  outline-offset: 3px;
+}
+
+.tamagotchi-pet-button:active {
+  transform: scale(0.96);
 }
 
 .tamagotchi-track-info {
@@ -308,6 +339,177 @@
   50% {
     opacity: 0.2;
   }
+}
+
+/* ───────────────────── Pet sprite animations ───────────────────── */
+/* These are the pet's idle life — driven purely by CSS so they keep
+   running even when nothing else on screen changes (no JS re-renders
+   are needed to keep the pet breathing/blinking). */
+
+/* Subtle resting breath: a tiny scale + float. Applied while paused. */
+@keyframes tg-pet-breathe {
+  0%,
+  100% {
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    transform: scale(1.03) translateY(-1px);
+  }
+}
+
+/* Lively bounce: the pet hops when music is playing. */
+@keyframes tg-pet-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.02);
+  }
+  34% {
+    transform: translateY(-7px) scale(1.08);
+  }
+  66% {
+    transform: translateY(0) scale(1.02);
+  }
+}
+
+/* One-shot joy pop triggered by a click (ephemeral, cosmetic only). */
+@keyframes tg-pet-poke-pop {
+  0% {
+    transform: scale(1);
+  }
+  36% {
+    transform: scale(1.32);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Blink: two layers of eyes cross-fade. The open layer fades out while the
+   closed layer fades in, mimicking a quick lid closure every few seconds. */
+@keyframes tg-blink-open {
+  0%,
+  94.5%,
+  100% {
+    opacity: 1;
+  }
+  96.25%,
+  98.25% {
+    opacity: 0;
+  }
+}
+
+@keyframes tg-blink-closed {
+  0%,
+  94.5%,
+  100% {
+    opacity: 0;
+  }
+  96.25%,
+  98.25% {
+    opacity: 1;
+  }
+}
+
+/* Ephemeral affection heart: pops up, floats, fades away. */
+@keyframes tg-heart-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.5);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.28);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -20px) scale(0.6);
+  }
+}
+
+/* Sleep "Z" puff: a gentle, looping drift beside the sleeping pet. */
+@keyframes tg-zzz-float {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: translate(-50%, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -3px);
+  }
+}
+
+/* Mode-driven sprite animation. These classes live on the pet frame and
+   target the sprite svg within, mirroring PlaybackState. */
+.tamagotchi-pet--playing .tamagotchi-pet-sprite {
+  animation: tg-pet-bounce 1.15s ease-in-out infinite;
+}
+
+.tamagotchi-pet--paused .tamagotchi-pet-sprite {
+  animation: tg-pet-breathe 4.2s ease-in-out infinite;
+}
+
+.tamagotchi-pet--disconnected .tamagotchi-pet-sprite {
+  /* Sleepy / static — no movement. */
+  animation: none;
+}
+
+.tamagotchi-pet--disconnected .tamagotchi-pet-eyes-sleeping {
+  /* Closed lids stay put; no blink cycle while asleep. */
+  opacity: 1;
+}
+
+/* Click reaction: a quick joy pop on the whole frame. */
+.tamagotchi-pet--poked {
+  animation: tg-pet-poke-pop 0.45s ease-out;
+}
+
+/* Awake blink layers (paused + playing). Sleeping (disconnected) uses the
+   static .tamagotchi-pet-eyes-sleeping group instead. */
+.tamagotchi-pet--playing .tamagotchi-pet-eyes-open,
+.tamagotchi-pet--paused .tamagotchi-pet-eyes-open {
+  animation: tg-blink-open 4.6s ease-in-out infinite;
+}
+
+.tamagotchi-pet--playing .tamagotchi-pet-eyes-closed,
+.tamagotchi-pet--paused .tamagotchi-pet-eyes-closed {
+  animation: tg-blink-closed 4.6s ease-in-out infinite;
+}
+
+/* Floating heart (renders when poked). */
+.tamagotchi-pet-heart {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: tg-heart-float 0.6s ease-out forwards;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tamagotchi-pet-heart svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  image-rendering: pixelated;
+}
+
+/* Floating sleep "Z" (renders when disconnected). */
+.tamagotchi-pet-zzz {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: tg-zzz-float 2.2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.tamagotchi-pet-zzz svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  image-rendering: pixelated;
 }
 
 /* Connection-status pill above the toy. Satisfies the shared skin
