@@ -269,18 +269,6 @@ function SpaceInvadersGame(): ReactElement {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    /* ── Sizing ── */
-    const resize = () => {
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (w > 0 && h > 0) {
-        canvas.width = w;
-        canvas.height = h;
-        buildStars();
-      }
-    };
-    resize();
-
     /* ── Starfield (static, regenerated for the current size) ── */
     let stars: Array<[number, number]> = [];
     const buildStars = () => {
@@ -292,6 +280,18 @@ function SpaceInvadersGame(): ReactElement {
       }
     };
     buildStars();
+
+    /* ── Sizing ── */
+    const resize = () => {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (w > 0 && h > 0) {
+        canvas.width = w;
+        canvas.height = h;
+        buildStars();
+      }
+    };
+    resize();
 
     /* ── Game state (mutable, local only) ── */
     const game = {
