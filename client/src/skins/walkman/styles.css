@@ -169,12 +169,108 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
+/* ── Animated tape reels behind the glass window ────────────────────
+   Two metallic hubs sit behind the sprockets and tape label. Each reel
+   carries a rim detail (the dashed ring) and a center spindle hole;
+   the entire element rotates via `wm-reel-spin` when its `data-spinning`
+   attribute is "true" (i.e. while playing). When paused or idle the
+   animation-play-state is `paused`, so the reels hold still.
+   ─────────────────────────────────────────────────────────────────── */
+.walkman-reel {
+  position: absolute;
+  top: 50%;
+  width: 26%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  z-index: 0;
+  background:
+    /* metallic hub */
+    radial-gradient(
+      circle at 30% 30%,
+      #6a6a6a 0%,
+      #4a4a4a 40%,
+      #3a3a3a 70%,
+      #2a2a2a 100%
+    ),
+    /* concentric tape-layer rings */
+    repeating-radial-gradient(
+      circle,
+      transparent 0%,
+      transparent 44%,
+      rgba(0, 0, 0, 0.35) 44%,
+      rgba(0, 0, 0, 0.35) 48%
+    ),
+    /* subtle highlight band for curvature */
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      transparent 100%
+    );
+  box-shadow:
+    inset 0 0 0 3px #0a0a0a,
+    inset 0 0 8px rgba(0, 0, 0, 0.7),
+    0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.walkman-reel--left {
+  left: 13%;
+}
+
+.walkman-reel--right {
+  right: 13%;
+}
+
+/* rim teeth detail — rotates with the reel to convey motion */
+.walkman-reel::before {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+}
+
+/* center spindle hole */
+.walkman-reel::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12%;
+  height: 12%;
+  border-radius: 50%;
+  background: var(--wm-black);
+  transform: translate(-50%, -50%);
+  box-shadow: inset 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+/* spinning animation: continuous rotation while playing */
+@keyframes wm-reel-spin {
+  from {
+    transform: translateY(-50%) rotate(0deg);
+  }
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
+}
+
+.walkman-reel[data-spinning="true"] {
+  animation: wm-reel-spin 2.2s linear infinite;
+  animation-play-state: running;
+}
+
+.walkman-reel[data-spinning="false"] {
+  animation: wm-reel-spin 2.2s linear infinite;
+  animation-play-state: paused;
+}
+
 /* the white cassette label area inside the window */
 .walkman-tape-label {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  z-index: 1;
   width: 64%;
   height: 38%;
   background:
@@ -194,6 +290,7 @@
 .walkman-sprocket {
   position: absolute;
   top: 50%;
+  z-index: 1;
   width: 22%;
   aspect-ratio: 1;
   border-radius: 50%;
@@ -523,7 +620,7 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────
- * Up-next list — etched cassette-label panel
+ * Up-next list — dark etched panel with high-contrast white text
  *
  * Contract testids (`walkman-queue`, `walkman-queue-item`) are kept on
  * the structural elements so the shared Skin contract suite can find
@@ -535,16 +632,19 @@
   padding: 10px 14px;
   width: var(--wm-chassis-width);
   max-width: 100%;
+  /* Dark blue/black panel — consistent with the pacific-blue palette so
+     the white and ad-accented text sits at high contrast. */
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.06),
-    rgba(0, 0, 0, 0.18)
+    var(--wm-black) 0%,
+    var(--wm-blue-deep) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.45);
   border-radius: 6px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.4);
   color: var(--wm-white);
   font-size: 11px;
   letter-spacing: 0.5px;

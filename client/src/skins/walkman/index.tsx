@@ -120,9 +120,12 @@ function ForwardGlyph(): ReactElement {
 
 /**
  * Brushed-aluminum top plate with a recessed cassette window.
- * Renders purely presentational structure — no playback data.
+ * Renders two animated tape reels that spin while `isPlaying` is true
+ * and pause when idle/paused, behind the existing sprockets and label.
+ * Purely presentational — no playback data beyond the play/pause state.
  */
-function TopPlate(): ReactElement {
+function TopPlate({ isPlaying }: { isPlaying: boolean }): ReactElement {
+  const spinState = isPlaying ? "true" : "false";
   return (
     <div className="walkman-top-plate">
       <div className="walkman-window-frame">
@@ -131,6 +134,17 @@ function TopPlate(): ReactElement {
           role="img"
           aria-label="Cassette tape window"
         >
+          {/* Animated tape reels — sit behind the sprockets and label. */}
+          <div
+            className="walkman-reel walkman-reel--left"
+            data-spinning={spinState}
+            aria-hidden="true"
+          />
+          <div
+            className="walkman-reel walkman-reel--right"
+            data-spinning={spinState}
+            aria-hidden="true"
+          />
           <div className="walkman-sprocket walkman-sprocket--left" />
           <div className="walkman-sprocket walkman-sprocket--right" />
           <div className="walkman-tape-label" aria-hidden="true" />
@@ -315,7 +329,7 @@ export const walkmanSkin: Skin = {
     return (
       <div className="walkman-skin" data-skin="walkman" key="walkman">
         <div className="walkman-chassis">
-          <TopPlate />
+          <TopPlate isPlaying={isPlaying} />
           <Faceplate arrow={<ArrowGlyph />}>{trackBody}</Faceplate>
         </div>
         <ConnectionStatus status={connectionStatus} />
