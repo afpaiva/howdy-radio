@@ -2,12 +2,16 @@ import type { Server, Socket } from "socket.io";
 import { Conductor } from "../conductor/conductor";
 import { SlackService } from "../slack/slack";
 import { YouTubeService } from "../youtube/youtube";
+import { getDashboardCollector, type DashboardCollector as DashboardCollectorType } from "../dashboard/collector";
+
+type DashboardCollector = DashboardCollectorType;
 
 export class WsHandler {
   private io: Server;
   private conductor: Conductor;
   private slack: SlackService;
   private youtube: YouTubeService;
+  private collectorPromise: Promise<DashboardCollector> | null = null;
 
   constructor(
     io: Server,
@@ -21,6 +25,13 @@ export class WsHandler {
     this.youtube = youtube;
 
     this.setupConnection();
+  }
+
+  private getCollector(): Promise<DashboardCollector> {
+    if (!this.collectorPromise) {
+      this.collectorPromise = getDashboardCollector();
+    }
+    return this.collectorPromise;
   }
 
   /**
@@ -59,6 +70,11 @@ export class WsHandler {
     try {
       // This will trigger bootstrap lock if we're returning from idle
       const state = await this.conductor.onClientConnect();
+      
+      // Record this listener for dashboard metrics
+      const collector = await this.getCollector();
+      collector.recordListener(socket.id);
+      
       socket.emit("state", state);
     } catch (error) {
       console.error("Error during client connect:", error);
@@ -98,11 +114,15 @@ export class WsHandler {
     const state = this.conductor.getCurrentState();
     let lastTrackId = state.currentTrack?.id ?? null;
 
-    setInterval(() => {
+    setInterval(async () => {
       if (this.conductor.getClientCount() > 0) {
+        const collector = await this.getCollector();
+        // Record current client count for hourly bucket tracking
+        collector.recordClientCount(this.conductor.getClientCount());
+
         // Persist any track transition to internal state so the next
         // tick doesn't recompute the same transition from the stale base.
-        this.conductor.advanceIfNeeded();
+        await this.conductor.advanceIfNeeded();
 
         const state = this.conductor.getCurrentState();
         const trackId = state.currentTrack?.id ?? null;

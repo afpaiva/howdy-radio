@@ -2,7 +2,7 @@
 name: server-implementer
 description: Builds the Bun backend — WebSocket conductor, Slack integration, YouTube ads, and auth provider
 mode: primary
-model: openrouter/z-ai/glm-5.2:free
+model: openrouter/poolside/laguna-s-2.1:free
 permissions:
   edit: allow
   bash: ask
