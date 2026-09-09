@@ -116,11 +116,19 @@ const wsHandler = new WsHandler(io, conductor, slackService, youtubeService);
  */
 function handleRequest(req: any, res: any): void {
   if (process.env.NODE_ENV === "development") {
-    res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    // Only emit CORS headers for requests that carry an Origin header —
+    // i.e. genuine cross-origin browser requests. Requests without an Origin
+    // header (Socket.io engine.io polling handshakes, same-origin navs,
+    // non-browser clients) don't need CORS. Setting header to undefined
+    // throws ERR_HTTP_INVALID_HEADER_VALUE and crashes the dev server.
+    const origin = req.headers.origin;
+    if (origin && typeof origin === "string" && origin.trim() !== "") {
+      res.setHeader("Access-Control-Allow-Origin", origin.trim());
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Vary", "Origin");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    }
 
     if (req.method === "OPTIONS") {
       res.writeHead(204);

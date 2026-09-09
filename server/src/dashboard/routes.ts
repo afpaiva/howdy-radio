@@ -4,6 +4,17 @@ import { getDashboardCollector } from "./collector";
 /**
  * Dashboard API routes
  * Handles GET /api/dashboard/stats and GET /api/dashboard/history
+ *
+ * CORS for cross-origin dev requests is handled centrally by the main
+ * request handler in server/index.ts (handleRequest) — the same mechanism
+ * used by /auth/* and /health. It sets Access-Control-Allow-Origin to the
+ * actual request origin (not "*") plus Access-Control-Allow-Credentials:
+ * true, and short-circuits OPTIONS preflight before routing.
+ *
+ * These handlers intentionally do NOT set their own CORS headers. Setting
+ * Access-Control-Allow-Origin: "*" here would overwrite the centralized
+ * handler's origin-based value, and "*" is rejected by the browser whenever
+ * credentials are involved (the client sends credentials: "include").
  */
 
 let collectorPromise: Promise<DashboardCollector> | null = null;
@@ -18,16 +29,6 @@ function getCollector(): Promise<DashboardCollector> {
 export type DashboardCollector = Awaited<ReturnType<typeof getDashboardCollector>>;
 
 /**
- * Set CORS headers for same-origin requests
- */
-function setCorsHeaders(res: ServerResponse): void {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-}
-
-/**
  * Handle GET /api/dashboard/stats
  * Returns current dashboard statistics
  */
@@ -36,22 +37,14 @@ export async function handleDashboardStats(
   res: ServerResponse,
   conductorClientCount: number
 ): Promise<void> {
-  setCorsHeaders(res);
-
-  if (req.method === "OPTIONS") {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
-
   try {
     const collector = await getCollector();
     const stats = collector.getStats(conductorClientCount);
-    res.writeHead(200);
+    res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(stats));
   } catch (error) {
     console.error("Error in /api/dashboard/stats:", error);
-    res.writeHead(500);
+    res.writeHead(500, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Internal server error" }));
   }
 }
@@ -64,22 +57,14 @@ export async function handleDashboardHistory(
   req: IncomingMessage,
   res: ServerResponse
 ): Promise<void> {
-  setCorsHeaders(res);
-
-  if (req.method === "OPTIONS") {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
-
   try {
     const collector = await getCollector();
     const history = collector.getHistory();
-    res.writeHead(200);
+    res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(history));
   } catch (error) {
     console.error("Error in /api/dashboard/history:", error);
-    res.writeHead(500);
+    res.writeHead(500, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Internal server error" }));
   }
 }
