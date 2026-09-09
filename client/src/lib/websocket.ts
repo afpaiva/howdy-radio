@@ -216,12 +216,11 @@ export function usePlayback(): PlaybackHookResult {
 
     return () => {
       subscribers.delete(listener);
-      if (subscribers.size === 0 && sharedSocket) {
-        sharedSocket.disconnect();
-        sharedSocket = null;
-        sharedState = null;
-        sharedIsLive = false;
-      }
+      // Keep the singleton socket alive for the lifetime of the app.
+      // In React StrictMode / dev remounts, a hook may unmount and remount
+      // immediately; disconnecting here triggers a second raw Socket.io
+      // connection for the same user. We only remove the local subscriber,
+      // leaving the app-wide connection intact.
     };
     // `socketRef` is stable; the empty dep array means connect once.
     // eslint-disable-next-line react-hooks/exhaustive-deps

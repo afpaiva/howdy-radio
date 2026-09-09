@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import { createElement } from 'react';
+import { createElement, StrictMode } from 'react';
 import { io } from 'socket.io-client';
 import type { WirePlaybackState, Track, PostedBy } from '../skins/types';
 import { usePlayback } from '../lib/websocket';
@@ -78,8 +78,14 @@ describe('WebSocket socket lifecycle', () => {
       return null;
     }
 
-    render(createElement(Consumer));
-    render(createElement(Consumer));
+    render(
+      createElement(
+        StrictMode,
+        null,
+        createElement(Consumer),
+        createElement(Consumer),
+      ),
+    );
 
     expect(io).toHaveBeenCalledTimes(1);
   });
