@@ -23,13 +23,14 @@
  * badges for interactive elements.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { usePlayback } from "./lib/websocket";
 import { useYouTubePlayer } from "./lib/youtube-player";
 import { DEFAULT_SKIN_ID, getSkin, getSkins } from "./skins/registry";
 import type { Skin } from "./skins/types";
 import { LoginGate } from "./components/LoginGate";
 import type { AuthUser } from "./components/LoginGate";
+import { Dashboard } from "./pages/Dashboard";
 import heroLogo from "../assets/hero-logo.png";
 import horizontalLogo from "../assets/horizontal-logo.png";
 import "./styles/app.css";
@@ -62,6 +63,29 @@ function AppShell() {
     if (typeof window === "undefined") return DEFAULT_SKIN_ID;
     return window.localStorage.getItem(STORAGE_KEY) ?? DEFAULT_SKIN_ID;
   });
+
+  // Simple client-side routing for /dashboard
+  const [route, setRoute] = useState<string>(() => {
+    if (typeof window === "undefined") return "player";
+    return window.location.hash.slice(1) || "player";
+  });
+
+  const navigate = useCallback((newRoute: string) => {
+    setRoute(newRoute);
+    if (typeof window !== "undefined") {
+      window.location.hash = newRoute;
+    }
+  }, []);
+
+  // Sync route with hash changes
+  useEffect(() => {
+    function onHashChange() {
+      const hash = window.location.hash.slice(1) || "player";
+      setRoute(hash);
+    }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   /**
    * The "Tune in" control is the single user-gesture entry point for audio
@@ -103,8 +127,15 @@ function AppShell() {
         onChange={setSkinId}
         tunedIn={tunedIn}
         onTuneIn={handleTuneIn}
+        route={route}
+        onNavigate={navigate}
       />
-      {!isLive ? (
+      {route === "dashboard" ? (
+        // Dashboard route — render Dashboard page (radio keeps playing via YouTube player)
+        <main className="howdy-main">
+          <Dashboard />
+        </main>
+      ) : !isLive ? (
         // Stage 1: connecting
         <div className="howdy-pre-launch">
           <img src={heroLogo} alt="Howdy Radio" className="howdy-hero-logo" />
@@ -149,7 +180,7 @@ function AppShell() {
  * Header — traditional horizontal bar fixed to top.
  *
  * Left: horizontal logo. Right: "Tune in" button before tuning in,
- * skin selector pills after tuning in (hamburger menu on mobile).
+ * skin selector pills + Dashboard link after tuning in (hamburger menu on mobile).
  * Full width, no border radius, sticky to top.
  */
 function Header({
@@ -158,12 +189,16 @@ function Header({
   onChange,
   tunedIn,
   onTuneIn,
+  route,
+  onNavigate,
 }: {
   skins: Skin[];
   activeId: string;
   onChange: (id: string) => void;
   tunedIn: boolean;
   onTuneIn: () => void;
+  route: string;
+  onNavigate: (route: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -200,6 +235,22 @@ function Header({
                   {s.name}
                 </button>
               ))}
+              <button
+                type="button"
+                className={`howdy-header-pill${route === "dashboard" ? " howdy-header-pill--active" : ""}`}
+                onClick={() => onNavigate("dashboard")}
+                data-active={route === "dashboard" ? "true" : "false"}
+              >
+                Dashboard
+              </button>
+              <button
+                type="button"
+                className={`howdy-header-pill${route === "player" ? " howdy-header-pill--active" : ""}`}
+                onClick={() => onNavigate("player")}
+                data-active={route === "player" ? "true" : "false"}
+              >
+                Player
+              </button>
             </div>
             <button
               type="button"
@@ -207,7 +258,7 @@ function Header({
               onClick={() => setMenuOpen(!menuOpen)}
               aria-expanded={menuOpen}
               aria-controls="skin-menu"
-              aria-label="Open skin selector"
+              aria-label="Open menu"
             >
               <span className="howdy-hamburger-line" />
               <span className="howdy-hamburger-line" />
@@ -231,6 +282,30 @@ function Header({
                   {s.name}
                 </button>
               ))}
+              <button
+                type="button"
+                role="menuitem"
+                className={`howdy-skin-dropdown-item${route === "dashboard" ? " howdy-skin-dropdown-item--active" : ""}`}
+                onClick={() => {
+                  onNavigate("dashboard");
+                  setMenuOpen(false);
+                }}
+                data-active={route === "dashboard" ? "true" : "false"}
+              >
+                Dashboard
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={`howdy-skin-dropdown-item${route === "player" ? " howdy-skin-dropdown-item--active" : ""}`}
+                onClick={() => {
+                  onNavigate("player");
+                  setMenuOpen(false);
+                }}
+                data-active={route === "player" ? "true" : "false"}
+              >
+                Player
+              </button>
             </div>
           </>
         )}

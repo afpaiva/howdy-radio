@@ -96,6 +96,8 @@ export interface PlaybackState {
   queue: Track[];
   /** Socket.io connection lifecycle state (client-derived). */
   connectionStatus: ConnectionStatus;
+  /** Number of currently connected clients (live users) — from server state. */
+  clientCount?: number;
 }
 
 /**

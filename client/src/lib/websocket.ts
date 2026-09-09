@@ -93,13 +93,14 @@ function normalizeTrack(raw: unknown): Track {
 }
 
 /** Normalize the raw server state to the client's WirePlaybackState shape. */
-function normalizeState(raw: unknown): WirePlaybackState {
+function normalizeState(raw: unknown): WirePlaybackState & { clientCount?: number } {
   if (!raw || typeof raw !== "object") {
     return {
       isPlaying: false,
       currentTrack: null,
       position: 0,
       queue: [],
+      clientCount: 0,
     };
   }
   const s = raw as Record<string, unknown>;
@@ -108,6 +109,7 @@ function normalizeState(raw: unknown): WirePlaybackState {
     currentTrack: s.currentTrack ? normalizeTrack(s.currentTrack) : null,
     position: typeof s.position === "number" ? s.position : 0,
     queue: Array.isArray(s.queue) ? s.queue.map(normalizeTrack) : [],
+    clientCount: typeof s.clientCount === "number" ? s.clientCount : 0,
   };
 }
 
@@ -155,10 +157,10 @@ export function usePlayback(): PlaybackHookResult {
     // Full server-authoritative snapshot — on connect and on any change.
     // Normalize the raw server payload to match the client-side contract
     // (postedBy as PostedBy, videoId instead of id, synthesized url field).
-    socket.on("state", (snapshot: WirePlaybackState) => {
-      const state = normalizeState(snapshot);
+    socket.on("state", (snapshot: WirePlaybackState & { clientCount?: number }) => {
+      const normalized = normalizeState(snapshot);
       setState((prev) => ({
-        ...state,
+        ...normalized,
         connectionStatus: prev?.connectionStatus ?? "connected",
       }));
     });

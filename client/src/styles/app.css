@@ -536,3 +536,389 @@
     font-size: 1.75rem;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/* Dashboard page                                                            */
+/* ═══════════════════════════════════════════════════════════════════════ */
+
+.howdy-dashboard {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 24px 16px;
+  box-sizing: border-box;
+}
+
+.howdy-dashboard-header {
+  margin-bottom: 32px;
+}
+
+.howdy-dashboard-title {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 2rem;
+  line-height: 1.2;
+  color: var(--howdy-text-strong);
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.howdy-dashboard-subtitle {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: var(--howdy-text-muted);
+}
+
+.howdy-dashboard-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ─── Stats grid ──────────────────────────────────────────────────────── */
+
+.howdy-dashboard-stats {
+  margin-bottom: 8px;
+}
+
+.howdy-dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.howdy-dashboard-stat-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--howdy-radius-bento);
+  padding: 28px 24px;
+  text-align: center;
+
+  box-shadow:
+    0 2px 6px  rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.07),
+    0 20px 48px rgba(0, 0, 0, 0.04);
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  border: 1px solid rgba(255, 255, 255, 0.45);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.howdy-dashboard-stat-card--featured {
+  grid-column: span 1;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 248, 240, 0.95));
+  border-color: rgba(229, 163, 91, 0.3);
+}
+
+.howdy-dashboard-stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.howdy-dashboard-stat-label {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--howdy-text);
+}
+
+.howdy-dashboard-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--howdy-font-bubble);
+  font-weight: 700;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--howdy-pill-amber);
+  white-space: nowrap;
+}
+
+.howdy-dashboard-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--howdy-pill-amber);
+  box-shadow: 0 0 8px var(--howdy-pill-amber);
+  animation: howdy-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes howdy-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.9); }
+}
+
+.howdy-dashboard-stat-value {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.howdy-dashboard-stat-value--large .howdy-dashboard-stat-pill {
+  padding: 16px 40px;
+  font-size: 1.5rem;
+}
+
+.howdy-dashboard-stat-pill {
+  min-width: 100px;
+}
+
+.howdy-dashboard-stat-pill--large {
+  min-width: 140px;
+}
+
+.howdy-dashboard-stat-description {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--howdy-text-muted);
+  margin: 0;
+}
+
+/* ─── Charts ──────────────────────────────────────────────────────────── */
+
+.howdy-dashboard-charts {
+  margin-top: 8px;
+}
+
+.howdy-dashboard-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.howdy-dashboard-chart {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--howdy-radius-bento);
+  padding: 28px 24px;
+
+  box-shadow:
+    0 2px 6px  rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.07),
+    0 20px 48px rgba(0, 0, 0, 0.04);
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  border: 1px solid rgba(255, 255, 255, 0.45);
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.howdy-dashboard-chart-title {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 1.1rem;
+  line-height: 1.3;
+  color: var(--howdy-text-strong);
+  margin: 0;
+}
+
+.howdy-dashboard-chart-svg-wrapper {
+  width: 100%;
+  height: 200px;
+  flex-shrink: 0;
+}
+
+.howdy-dashboard-chart-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.howdy-dashboard-chart-svg--donut {
+  height: 220px;
+}
+
+.howdy-dashboard-chart-grid line {
+  stroke-dasharray: 8 8;
+}
+
+.howdy-dashboard-chart-line {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+
+.howdy-dashboard-chart-point {
+  transition: r var(--howdy-transition);
+}
+
+.howdy-dashboard-chart-point:hover {
+  r: 4%;
+}
+
+.howdy-dashboard-chart-bar {
+  transition: fill var(--howdy-transition);
+}
+
+.howdy-dashboard-chart-bar:hover {
+  fill: var(--howdy-sage);
+}
+
+.howdy-dashboard-chart-segment {
+  transition: stroke-dashoffset var(--howdy-transition);
+}
+
+.howdy-dashboard-chart-x-axis {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2%;
+  font-family: var(--howdy-font-bubble);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--howdy-text-muted);
+}
+
+.howdy-dashboard-chart-x-label {
+  white-space: nowrap;
+}
+
+.howdy-dashboard-chart-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: var(--howdy-text-muted);
+}
+
+.howdy-dashboard-chart-donut-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.howdy-dashboard-donut-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.howdy-dashboard-donut-total {
+  font-family: var(--howdy-font-bubble);
+  font-weight: 800;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--howdy-text-strong);
+}
+
+.howdy-dashboard-donut-label {
+  font-family: var(--howdy-font-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--howdy-text-muted);
+  text-transform: lowercase;
+}
+
+.howdy-dashboard-chart-legend {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+}
+
+.howdy-dashboard-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--howdy-font-sans);
+  font-size: 0.9rem;
+  color: var(--howdy-text);
+}
+
+.howdy-dashboard-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.howdy-dashboard-legend-label {
+  flex: 1;
+  font-weight: 500;
+}
+
+.howdy-dashboard-legend-value {
+  font-family: var(--howdy-font-bubble);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--howdy-text-strong);
+}
+
+/* ─── Header active state for dashboard/player pills ─────────────────── */
+
+.howdy-header-pill--active {
+  background: linear-gradient(135deg, var(--howdy-pill-periwinkle), #7A87C7) !important;
+  color: #FFFFFF !important;
+  box-shadow: var(--howdy-shadow-pill) !important;
+}
+
+.howdy-header-pill--active:hover {
+  transform: translateY(-2px) !important;
+  box-shadow:
+    0 6px 20px rgba(154, 166, 220, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ─── Responsive dashboard ───────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .howdy-dashboard {
+    padding: 16px 12px;
+  }
+
+  .howdy-dashboard-title {
+    font-size: 1.5rem;
+  }
+
+  .howdy-dashboard-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .howdy-dashboard-stat-card--featured {
+    grid-column: auto;
+  }
+
+  .howdy-dashboard-charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .howdy-dashboard-chart-svg-wrapper {
+    height: 180px;
+  }
+
+  .howdy-dashboard-chart-svg--donut {
+    height: 200px;
+  }
+}
