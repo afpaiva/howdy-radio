@@ -223,43 +223,20 @@ function Header({
           </button>
         ) : (
           <>
-            <div className="howdy-header-pills">
-              {skins.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className="howdy-header-pill"
-                  onClick={() => onChange(s.id)}
-                  data-active={s.id === activeId ? "true" : "false"}
-                >
-                  {s.name}
-                </button>
-              ))}
-              <button
-                type="button"
-                className={`howdy-header-pill${route === "dashboard" ? " howdy-header-pill--active" : ""}`}
-                onClick={() => onNavigate("dashboard")}
-                data-active={route === "dashboard" ? "true" : "false"}
-              >
-                Dashboard
-              </button>
-              <button
-                type="button"
-                className={`howdy-header-pill${route === "player" ? " howdy-header-pill--active" : ""}`}
-                onClick={() => onNavigate("player")}
-                data-active={route === "player" ? "true" : "false"}
-              >
-                Player
-              </button>
-            </div>
             <button
               type="button"
-              className="howdy-hamburger"
-              onClick={() => setMenuOpen(!menuOpen)}
+              className="howdy-hamburger howdy-hamburger--player-dropdown"
+              onClick={() => {
+                // Go to player view and open dropdown
+                onNavigate("player");
+                setMenuOpen(!menuOpen);
+              }}
               aria-expanded={menuOpen}
               aria-controls="skin-menu"
-              aria-label="Open menu"
+              aria-label="Player menu"
+              data-testid="skins-dropdown-trigger"
             >
+              Player
               <span className="howdy-hamburger-line" />
               <span className="howdy-hamburger-line" />
               <span className="howdy-hamburger-line" />
@@ -270,6 +247,7 @@ function Header({
               role="menu"
               aria-orientation="vertical"
             >
+              <div className="howdy-skin-dropdown-header">Skins</div>
               {skins.map((s) => (
                 <button
                   key={s.id}
@@ -282,6 +260,7 @@ function Header({
                   {s.name}
                 </button>
               ))}
+              <div className="howdy-skin-dropdown-separator" />
               <button
                 type="button"
                 role="menuitem"
