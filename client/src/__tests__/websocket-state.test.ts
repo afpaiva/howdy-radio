@@ -8,7 +8,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { render } from '@testing-library/react';
+import { createElement } from 'react';
+import { io } from 'socket.io-client';
 import type { WirePlaybackState, Track, PostedBy } from '../skins/types';
+import { usePlayback } from '../lib/websocket';
 
 // Re-implement the normalization logic here to test it in isolation.
 // In production, the same functions live in websocket.ts. Testing them
@@ -66,6 +70,20 @@ function normalizeState(raw: unknown): WirePlaybackState {
     queue: Array.isArray(s.queue) ? s.queue.map(normalizeTrack) : [],
   };
 }
+
+describe('WebSocket socket lifecycle', () => {
+  it('shares one socket across multiple hook consumers', () => {
+    function Consumer() {
+      usePlayback();
+      return null;
+    }
+
+    render(createElement(Consumer));
+    render(createElement(Consumer));
+
+    expect(io).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('WebSocket state normalization', () => {
   describe('normalizePostedBy', () => {

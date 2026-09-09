@@ -36,6 +36,15 @@ import type {
 const WS_URL: string | undefined =
   (import.meta as any).env.VITE_WS_URL || "http://localhost:3000";
 
+let sharedSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
+
+function getSharedSocket() {
+  if (!sharedSocket) {
+    sharedSocket = io(WS_URL);
+  }
+  return sharedSocket;
+}
+
 /** The merged playback state the UI consumes, or `null` while connecting. */
 export interface PlaybackHookResult {
   state: PlaybackState | null;
@@ -126,7 +135,7 @@ export function usePlayback(): PlaybackHookResult {
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
 
   useEffect(() => {
-    const socket = io(WS_URL);
+    const socket = getSharedSocket();
     socketRef.current = socket;
 
     // Track connection lifecycle — the client's only self-owned state.
@@ -136,53 +145,65 @@ export function usePlayback(): PlaybackHookResult {
       );
     }
 
-    socket.on("connect", () => {
+    const onConnect = () => {
       setConnectionStatus("connected");
       setLive(true);
       // Do NOT emit "join" here — the server already sends "state" on connect.
       // The "join-broadcast" control intent is only emitted after the user
       // clicks "Tune in" (tuneIn()), satisfying the autoplay policy.
-    });
+    };
 
-    socket.on("disconnect", () => {
+    const onDisconnect = () => {
       setConnectionStatus("disconnected");
       setLive(false);
-    });
+    };
 
-    socket.on("connect_error", () => {
+    const onConnectError = () => {
       setConnectionStatus("connecting");
       setLive(false);
-    });
+    };
 
     // Full server-authoritative snapshot — on connect and on any change.
     // Normalize the raw server payload to match the client-side contract
     // (postedBy as PostedBy, videoId instead of id, synthesized url field).
-    socket.on("state", (snapshot: WirePlaybackState & { clientCount?: number }) => {
+    const onState = (snapshot: WirePlaybackState & { clientCount?: number }) => {
       const normalized = normalizeState(snapshot);
       setState((prev) => ({
         ...normalized,
         connectionStatus: prev?.connectionStatus ?? "connected",
       }));
-    });
+    };
 
     // Cheap position tick — keeps the rendered clock advancing in real time.
-    socket.on("tick", (payload: { position: number; isPlaying: boolean }) => {
+    const onTick = (payload: { position: number; isPlaying: boolean }) => {
       setState((prev) =>
         prev
           ? { ...prev, position: payload.position, isPlaying: payload.isPlaying }
           : null,
       );
-    });
+    };
 
     // Server went idle (all clients disconnected); expect a fresh `state`.
-    socket.on("idle", () => {
+    const onIdle = () => {
       setState((prev) =>
         prev ? { ...prev, isPlaying: false } : null,
       );
-    });
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onConnectError);
+    socket.on("state", onState);
+    socket.on("tick", onTick);
+    socket.on("idle", onIdle);
 
     return () => {
-      socket.disconnect();
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
+      socket.off("state", onState);
+      socket.off("tick", onTick);
+      socket.off("idle", onIdle);
     };
     // `socketRef` is stable; the empty dep array means connect once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
