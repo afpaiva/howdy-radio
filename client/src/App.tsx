@@ -23,7 +23,7 @@
  * badges for interactive elements.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { usePlayback } from "./lib/websocket";
 import { useYouTubePlayer } from "./lib/youtube-player";
 import { DEFAULT_SKIN_ID, getSkin, getSkins } from "./skins/registry";
@@ -179,8 +179,8 @@ function AppShell() {
 /**
  * Header — traditional horizontal bar fixed to top.
  *
- * Left: horizontal logo. Right: "Tune in" button before tuning in,
- * skin selector pills + Dashboard link after tuning in (hamburger menu on mobile).
+ * Left: horizontal logo. Right: Tune in (until joined), plus Dashboard
+ * and Player. Player navigates to #player and opens the skins dropdown.
  * Full width, no border radius, sticky to top.
  */
 function Header({
@@ -201,19 +201,51 @@ function Header({
   onNavigate: (route: string) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const playerMenuRef = useRef<HTMLDivElement>(null);
 
   const handleSkinSelect = (id: string) => {
     onChange(id);
     setMenuOpen(false);
   };
 
+  const handleDashboard = () => {
+    setMenuOpen(false);
+    onNavigate("dashboard");
+  };
+
+  const handlePlayer = () => {
+    onNavigate("player");
+    setMenuOpen((open) => !open);
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function onPointerDown(event: MouseEvent) {
+      if (playerMenuRef.current && !playerMenuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
   return (
     <header className="howdy-header" data-testid="header">
       <a href="/" className="howdy-header-logo" aria-label="Howdy Radio home">
         <img src={horizontalLogo} alt="" />
       </a>
-      <nav className="howdy-header-nav" aria-label={tunedIn ? "Skin selector" : "Tune in"}>
-        {!tunedIn ? (
+      <nav className="howdy-header-nav" aria-label="App navigation">
+        {!tunedIn && (
           <button
             type="button"
             className="howdy-header-pill howdy-header-pill--primary"
@@ -221,73 +253,51 @@ function Header({
           >
             Tune in
           </button>
-        ) : (
-          <>
-            <button
-              type="button"
-              className="howdy-hamburger howdy-hamburger--player-dropdown"
-              onClick={() => {
-                // Go to player view and open dropdown
-                onNavigate("player");
-                setMenuOpen(!menuOpen);
-              }}
-              aria-expanded={menuOpen}
-              aria-controls="skin-menu"
-              aria-label="Player menu"
-              data-testid="skins-dropdown-trigger"
-            >
-              Player
-              <span className="howdy-hamburger-line" />
-              <span className="howdy-hamburger-line" />
-              <span className="howdy-hamburger-line" />
-            </button>
-            <div
-              id="skin-menu"
-              className={`howdy-skin-dropdown${menuOpen ? " howdy-skin-dropdown--open" : ""}`}
-              role="menu"
-              aria-orientation="vertical"
-            >
-              <div className="howdy-skin-dropdown-header">Skins</div>
-              {skins.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  role="menuitem"
-                  className={`howdy-skin-dropdown-item${s.id === activeId ? " howdy-skin-dropdown-item--active" : ""}`}
-                  onClick={() => handleSkinSelect(s.id)}
-                  data-active={s.id === activeId ? "true" : "false"}
-                >
-                  {s.name}
-                </button>
-              ))}
-              <div className="howdy-skin-dropdown-separator" />
-              <button
-                type="button"
-                role="menuitem"
-                className={`howdy-skin-dropdown-item${route === "dashboard" ? " howdy-skin-dropdown-item--active" : ""}`}
-                onClick={() => {
-                  onNavigate("dashboard");
-                  setMenuOpen(false);
-                }}
-                data-active={route === "dashboard" ? "true" : "false"}
-              >
-                Dashboard
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className={`howdy-skin-dropdown-item${route === "player" ? " howdy-skin-dropdown-item--active" : ""}`}
-                onClick={() => {
-                  onNavigate("player");
-                  setMenuOpen(false);
-                }}
-                data-active={route === "player" ? "true" : "false"}
-              >
-                Player
-              </button>
-            </div>
-          </>
         )}
+        <button
+          type="button"
+          className={`howdy-header-pill${route === "dashboard" ? " howdy-header-pill--active" : ""}`}
+          onClick={handleDashboard}
+          data-active={route === "dashboard" ? "true" : "false"}
+          data-testid="nav-dashboard"
+        >
+          Dashboard
+        </button>
+        <div className="howdy-player-menu" ref={playerMenuRef}>
+          <button
+            type="button"
+            className={`howdy-header-pill howdy-header-pill--player${route === "player" ? " howdy-header-pill--active" : ""}`}
+            onClick={handlePlayer}
+            aria-expanded={menuOpen}
+            aria-controls="skin-menu"
+            aria-haspopup="menu"
+            data-active={route === "player" ? "true" : "false"}
+            data-testid="skins-dropdown-trigger"
+          >
+            Player
+            <span className="howdy-player-chevron" aria-hidden="true" />
+          </button>
+          <div
+            id="skin-menu"
+            className={`howdy-skin-dropdown${menuOpen ? " howdy-skin-dropdown--open" : ""}`}
+            role="menu"
+            aria-orientation="vertical"
+          >
+            <div className="howdy-skin-dropdown-header">Skins</div>
+            {skins.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                role="menuitem"
+                className={`howdy-skin-dropdown-item${s.id === activeId ? " howdy-skin-dropdown-item--active" : ""}`}
+                onClick={() => handleSkinSelect(s.id)}
+                data-active={s.id === activeId ? "true" : "false"}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        </div>
       </nav>
     </header>
   );
