@@ -202,6 +202,7 @@ export function usePlayback(): PlaybackHookResult {
   const socketRef = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
 
   useEffect(() => {
+    if (socketRef.current) return;
     const socket = getSharedSocket();
     socketRef.current = socket;
 
