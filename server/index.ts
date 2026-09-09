@@ -16,6 +16,7 @@ import { Conductor } from "./src/conductor/conductor";
 import { SlackService } from "./src/slack/slack";
 import { YouTubeService } from "./src/youtube/youtube";
 import { WsHandler } from "./src/ws/handler";
+import { handleDashboardRoutes } from "./src/dashboard/routes";
 import type { ServerConfig } from "./src/types";
 import jwt from "jsonwebtoken";
 
@@ -131,6 +132,16 @@ function handleRequest(req: any, res: any): void {
   // Handle POST /auth/login
   if (req.method === "POST" && req.url === "/auth/login") {
     handleAuthLogin(req, res);
+    return;
+  }
+
+  // Handle dashboard routes
+  if (req.url?.startsWith("/api/dashboard/")) {
+    handleDashboardRoutes(req, res, conductor.getClientCount()).catch((err) => {
+      console.error("Dashboard route error:", err);
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: "Internal server error" }));
+    });
     return;
   }
 

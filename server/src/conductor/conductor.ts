@@ -1,5 +1,6 @@
 import type { PlaybackState, StateSnapshot, Track } from "../types";
 import { SeedPlaylist } from "../seed/playlist";
+import { getDashboardCollector } from "../dashboard/collector";
 
 export class Conductor {
   // Authoritative playback state
@@ -443,12 +444,17 @@ export class Conductor {
    * avoid freezing the clock — `lastUpdated` stays at the last
    * `applyState()` time so `elapsed` accumulates correctly between calls.
    */
-  advanceIfNeeded(): void {
+  async advanceIfNeeded(): Promise<void> {
     if (this.state.clientCount === 0) return;
 
     const computed = this.computeLiveState();
 
     if (computed.currentTrack?.id !== this.state.currentTrack?.id) {
+      // Track transition occurred - record in dashboard collector
+      if (this.state.currentTrack) {
+        const collector = await getDashboardCollector();
+        collector.recordTrackPlayed(this.state.currentTrack, this.state.clientCount);
+      }
       this.applyState(computed);
     }
   }
