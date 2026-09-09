@@ -119,4 +119,22 @@ describe("WsHandler - Track Change Broadcasting", () => {
     // only tick events for position updates
     expect(stateEvents.length).toBe(0);
   });
+
+  test("broadcasts the new client count to every connected client on connect", async () => {
+    const emittedEvents: { type: string; payload: any }[] = [];
+    const originalEmit = io.emit.bind(io);
+    io.emit = ((type: string, payload?: any) => {
+      emittedEvents.push({ type, payload });
+    }) as any;
+
+    const socket = { id: "socket-a", emit: () => undefined } as any;
+    await (handler as any).handleConnect(socket);
+
+    const clientCountState = emittedEvents.find(
+      (event) => event.type === "state" && event.payload?.clientCount === 1,
+    );
+
+    expect(clientCountState).toBeTruthy();
+    io.emit = originalEmit;
+  });
 });

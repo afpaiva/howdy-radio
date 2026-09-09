@@ -53,6 +53,8 @@ export class WsHandler {
       socket.on("disconnect", () => {
         console.log(`Client disconnected: ${socket.id}`);
         const wasLast = this.conductor.onClientDisconnect();
+        const nextState = this.conductor.getCurrentState();
+        this.io.emit("state", nextState);
         if (wasLast) {
           // Playback clock halts — emit idle signal to any remaining sockets
           this.io.emit("idle");
@@ -70,12 +72,15 @@ export class WsHandler {
     try {
       // This will trigger bootstrap lock if we're returning from idle
       const state = await this.conductor.onClientConnect();
-      
+
       // Record this listener for dashboard metrics
       const collector = await this.getCollector();
       collector.recordListener(socket.id);
-      
-      socket.emit("state", state);
+
+      // Broadcast the updated live client count to every connected client.
+      // The dashboard and any other viewers need to see the new count without
+      // waiting for a manual refresh or a track transition.
+      this.io.emit("state", state);
     } catch (error) {
       console.error("Error during client connect:", error);
       socket.emit("error", { message: "Failed to connect" });
