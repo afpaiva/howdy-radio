@@ -14,7 +14,7 @@
   🟢 **Live demo:** [howdy-radio-app.web.app](https://howdy-radio-app.web.app/)
 </div>
 
-Presentation Slides:
+Presentation Slides (evidences):
 - https://docs.google.com/presentation/d/19vD-tVJFMnBnXMeZR1rIgnFdeMrqD_9ixM9IVMwZEiw/edit?usp=sharing
 
 Video Presentation:
