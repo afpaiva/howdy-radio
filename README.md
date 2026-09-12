@@ -14,7 +14,13 @@
   🟢 **Live demo:** [howdy-radio-app.web.app](https://howdy-radio-app.web.app/)
 </div>
 
----
+Presentation Slides:
+- https://docs.google.com/presentation/d/19vD-tVJFMnBnXMeZR1rIgnFdeMrqD_9ixM9IVMwZEiw/edit?usp=sharing
+
+Video Presentation:
+- https://www.loom.com/share/6c3e848e097740d2b00e83998e20941a
+
+Developer: André Fonseca de Paiva
 
 ## What is this?
 
