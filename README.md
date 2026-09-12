@@ -1,4 +1,3 @@
-
 <div align="center">
   Built with 🎙️ for the Howdy team.
 </div>
@@ -6,7 +5,7 @@
 ---
 
 <div align="center">
-  <img width="300" alt="Howdy Radio logo" src="https://github.com/user-attachments/assets/9f7c1576-3e86-41f6-b0a5-c9872c5c39d8" />
+  <img width="360" alt="Howdy Radio logo" src="https://github.com/user-attachments/assets/30898378-4abc-4845-88d7-c8d1a43952e3" />
 
   # Howdy Radio
 
