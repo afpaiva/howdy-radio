@@ -80,7 +80,13 @@ Open the client URL printed in the terminal, log in with any `@howdy.com` email,
 
 ## Environment variables
 
-All configured in `server/.env` (see `server/.env.example` for a ready-to-copy template — **never commit `.env`**).
+In `client/.env` just add a single variable:
+
+```
+VITE_WS_URL=http_your_server_address
+```
+
+In `server/.env` (see `server/.env.example` for a ready-to-copy template — **never commit `.env`**).
 
 | Variable | Purpose | Default |
 |---|---|---|
